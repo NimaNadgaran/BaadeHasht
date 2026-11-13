@@ -1,10 +1,9 @@
 {
-  "name": "${PROJECT_NAME}",
+  "name": "baadehasht-frontends",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "private": true,
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
-  },
-  "private": true
+    "dev": "node frontend/server.cjs",
+    "start": "node frontend/server.cjs"
+  }
 }

@@ -4,156 +4,274 @@ const canvas = document.querySelector('.scene-film');
 const context = canvas.getContext('2d', { alpha: false });
 const poster = document.querySelector('.scene-poster');
 const progressLabel = document.querySelector('#scroll-progress');
-const preference = window.matchMedia('(prefers-reduced-motion: reduce)');
+const statusLabel = document.querySelector('#playback-status');
+const header = document.querySelector('.site-header');
+const content = document.querySelector('.content');
 const adaptive = body.dataset.themeMode === 'adaptive';
 const frameCount = 144;
-const cache = new Map();
-const pending = new Map();
-const warmed = new Set();
+const introDuration = 6000;
+const loopDuration = 12000;
+const sweepStart = 84;
+const sweepEnd = 132;
 const clamp = value => Math.max(0, Math.min(1, value));
 let activeTheme = adaptive ? document.documentElement.dataset.theme : body.dataset.theme;
+let media;
 let animationRequest = 0;
-let displayedProgress = 0;
-let desiredFrame = 1;
-let requestId = 0;
-let previousTimestamp = 0;
-let drawnKey = '';
+let previousTimestamp = null;
+let introElapsed = 0;
+let loopElapsed = 0;
+let contentRevealed = false;
+let drawing = false;
 
-function scrollDistance() {
-  return Number(window.innerWidth <= 650 ? body.dataset.mobileScrollDistance : body.dataset.scrollDistance) || 2400;
+function setupTextReveals() {
+  if (!('IntersectionObserver' in window)) return;
+  const observer = new IntersectionObserver(entries => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      entry.target.classList.add('is-revealed');
+      observer.unobserve(entry.target);
+    }
+  }, { threshold: 0.12, rootMargin: '0px 0px -10% 0px' });
+  document.querySelectorAll('.content-intro, .conversation-card, .reading-story, .invitation').forEach(element => {
+    element.classList.add('scroll-reveal');
+    observer.observe(element);
+  });
 }
 
-function startOffset() {
-  return track.getBoundingClientRect().top + window.scrollY;
+function updateScrollProgress() {
+  const distance = document.documentElement.scrollHeight - window.innerHeight;
+  const progress = distance > 0 ? clamp(window.scrollY / distance) : 0;
+  progressLabel.textContent = Math.round(progress * 100) + '%';
+  if (contentRevealed) {
+    const fadeTop = Math.max(0, header.getBoundingClientRect().bottom + 8 - content.getBoundingClientRect().top);
+    content.style.setProperty('--content-fade-top', fadeTop + 'px');
+  }
+}
+
+function revealContent() {
+  contentRevealed = true;
+  body.classList.add('intro-complete');
+  updateScrollProgress();
+}
+
+function finishIntro() {
+  introElapsed = introDuration;
+  loopElapsed = 0;
+  revealContent();
+  body.dataset.playback = 'loop';
+  statusLabel.textContent = 'متن‌ها آماده‌اند. برای خواندن ادامه، اسکرول کنید.';
 }
 
 function frameUrl(theme, frame) {
-  return `/frontend/3d_${theme}/frames/frame_${String(frame).padStart(4, '0')}.webp`;
+  return '/frontend/3d_' + theme + '/frames/frame_' + String(frame).padStart(4, '0') + '.webp';
 }
 
-function loadFrame(theme, frame) {
-  const key = `${theme}:${frame}`;
-  if (cache.has(key)) {
-    const image = cache.get(key);
-    cache.delete(key);
-    cache.set(key, image);
+function lightFrame() {
+  const sweep = (1 + Math.cos(loopElapsed / loopDuration * Math.PI * 2)) / 2;
+  return sweepStart + sweep * (sweepEnd - sweepStart);
+}
+
+function loadFrame(source, frame) {
+  if (source.cache.has(frame)) {
+    const image = source.cache.get(frame);
+    source.cache.delete(frame);
+    source.cache.set(frame, image);
     return Promise.resolve(image);
   }
-  if (pending.has(key)) return pending.get(key);
+  if (source.pending.has(frame)) return source.pending.get(frame);
   const image = new Image();
   image.decoding = 'async';
-  image.src = frameUrl(theme, frame);
+  image.src = source.urls.get(frame);
   const promise = image.decode().then(() => {
-    cache.set(key, image);
-    while (cache.size > 24) cache.delete(cache.keys().next().value);
+    if (source !== media || source.controller.signal.aborted) return image;
+    source.cache.set(frame, image);
+    while (source.cache.size > 16) source.cache.delete(source.cache.keys().next().value);
     return image;
-  }).finally(() => pending.delete(key));
-  pending.set(key, promise);
+  }).finally(() => source.pending.delete(frame));
+  source.pending.set(frame, promise);
   return promise;
 }
 
-async function warmFrames(theme) {
-  if (warmed.has(theme)) return;
-  warmed.add(theme);
+function releaseMedia(source) {
+  if (!source) return;
+  source.controller.abort();
+  for (const url of source.urls.values()) URL.revokeObjectURL(url);
+  source.urls.clear();
+  source.cache.clear();
+}
+
+function showFallback(source, error) {
+  if (source !== media) return;
+  source.ready = false;
+  releaseMedia(source);
+  body.classList.add('media-failed');
+  body.dataset.playback = 'fallback';
+  body.dataset.playbackError = error?.message || 'Background frames unavailable';
+  console.warn('Background animation unavailable:', error);
+  track.setAttribute('aria-busy', 'false');
+  statusLabel.textContent = 'پس‌زمینهٔ ثابت نمایش داده می‌شود. متن‌ها آمادهٔ خواندن هستند.';
+  revealContent();
+}
+
+async function prepareMedia(source) {
+  let timeout;
+  const resetLoadingTimeout = () => {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => source.controller.abort(), 45000);
+  };
+  resetLoadingTimeout();
+  const interfaceReady = Promise.allSettled([
+    document.fonts.ready,
+    document.querySelector('.brand-symbol').decode(),
+  ]);
+  let abortLoading;
+  const interrupted = new Promise((resolve, reject) => {
+    abortLoading = () => reject(new Error('Loading interrupted'));
+    source.controller.signal.addEventListener('abort', abortLoading, { once: true });
+  });
   const queue = Array.from({ length: frameCount }, (_, index) => index + 1);
   async function worker() {
-    while (queue.length && theme === activeTheme) {
+    while (queue.length && source === media) {
       const frame = queue.shift();
-      try {
-        const response = await fetch(frameUrl(theme, frame), { cache: 'force-cache' });
-        if (response.ok) await response.arrayBuffer();
-      } catch {}
+      const response = await fetch(frameUrl(source.theme, frame), {
+        cache: 'force-cache', signal: source.controller.signal,
+      });
+      if (!response.ok) throw new Error('Frame ' + frame + ': ' + response.status);
+      const blob = await response.blob();
+      if (source !== media || source.controller.signal.aborted) return;
+      source.urls.set(frame, URL.createObjectURL(blob));
+      resetLoadingTimeout();
     }
   }
-  await Promise.all([worker(), worker(), worker()]);
-  if (queue.length) warmed.delete(theme);
+  try {
+    await Promise.race([
+      (async () => {
+        await Promise.all(Array.from({ length: 6 }, worker));
+        if (source !== media || source.controller.signal.aborted) return;
+        await Promise.all([
+          Promise.race([interfaceReady, new Promise(resolve => setTimeout(resolve, 2000))]),
+          ...Array.from({ length: 8 }, (_, index) => loadFrame(source, index + 1)),
+        ]);
+      })(),
+      interrupted,
+    ]);
+    if (source !== media || source.controller.signal.aborted) throw new Error('Loading interrupted');
+    source.ready = true;
+    track.setAttribute('aria-busy', 'false');
+    body.classList.remove('media-failed');
+    previousTimestamp = null;
+    body.dataset.playback = contentRevealed ? 'loop' : 'intro';
+    statusLabel.textContent = contentRevealed ? 'متن‌ها آمادهٔ خواندن هستند.' : 'نمایش نشان بعد هشت';
+    await drawFrame(contentRevealed ? lightFrame() : Math.min(frameCount, 1 + introElapsed / 1000 * 24));
+    scheduleRender();
+  } catch (error) {
+    showFallback(source, error);
+  } finally {
+    clearTimeout(timeout);
+    source.controller.signal.removeEventListener('abort', abortLoading);
+  }
 }
 
 async function drawFrame(frame) {
-  const theme = activeTheme;
+  const source = media;
+  if (!source?.ready || drawing) return;
+  drawing = true;
   const lowerFrame = Math.floor(frame);
   const upperFrame = Math.min(frameCount, lowerFrame + 1);
   const blend = frame - lowerFrame;
-  const key = `${theme}:${frame.toFixed(3)}`;
-  if (key === drawnKey) return;
-  const currentRequest = ++requestId;
   try {
-    const [image, nextImage] = await Promise.all([loadFrame(theme, lowerFrame), loadFrame(theme, upperFrame)]);
-    if (theme !== activeTheme || currentRequest !== requestId) return;
+    const [image, nextImage] = await Promise.all([
+      loadFrame(source, lowerFrame),
+      loadFrame(source, upperFrame),
+    ]);
+    if (source !== media) return;
+    context.globalAlpha = 1;
     context.drawImage(image, 0, 0, canvas.width, canvas.height);
     context.globalAlpha = blend;
     context.drawImage(nextImage, 0, 0, canvas.width, canvas.height);
     context.globalAlpha = 1;
-    canvas.dataset.frame = String(Math.round(frame));
-    canvas.dataset.theme = theme;
-    drawnKey = key;
-    body.classList.remove('media-failed');
-  } catch {
-    if (theme !== activeTheme || currentRequest !== requestId) return;
-    body.classList.add('media-failed');
+    canvas.dataset.frame = frame.toFixed(3);
+    canvas.dataset.theme = source.theme;
+    const direction = body.dataset.playback === 'intro' || Math.sin(loopElapsed / loopDuration * Math.PI * 2) < 0 ? 1 : -1;
+    for (let offset = 1; offset <= 6; offset++) {
+      const nextFrame = Math.max(1, Math.min(frameCount, lowerFrame + offset * direction));
+      loadFrame(source, nextFrame).catch(() => {});
+    }
+  } catch (error) {
+    showFallback(source, error);
+  } finally {
+    if (source === media) drawing = false;
   }
 }
 
 function render(timestamp) {
   animationRequest = 0;
-  const target = clamp((window.scrollY - startOffset()) / scrollDistance());
-  const elapsed = previousTimestamp ? Math.min(timestamp - previousTimestamp, 50) : 16;
+  if (document.hidden || !media?.ready) return;
+  const elapsed = previousTimestamp === null ? 0 : timestamp - previousTimestamp;
   previousTimestamp = timestamp;
-  if (preference.matches) {
-    displayedProgress = target;
-  } else {
-    const difference = target - displayedProgress;
-    displayedProgress += difference * (1 - Math.exp(-elapsed / 140));
-    if (Math.abs(target - displayedProgress) < 0.0001) displayedProgress = target;
+  if (body.dataset.playback === 'intro') {
+    introElapsed = Math.min(introDuration, introElapsed + elapsed);
+    if (introElapsed < introDuration) {
+      drawFrame(Math.min(frameCount, 1 + introElapsed / 1000 * 24));
+    } else {
+      finishIntro();
+      drawFrame(sweepEnd);
+    }
+  } else if (body.dataset.playback === 'loop') {
+    loopElapsed = (loopElapsed + elapsed) % loopDuration;
+    drawFrame(lightFrame());
   }
-  const progress = clamp(displayedProgress);
-  track.style.setProperty('--progress', progress.toFixed(4));
-  track.style.setProperty('--intro-opacity', clamp(1 - progress / 0.43).toFixed(4));
-  track.style.setProperty('--outro-opacity', clamp((progress - 0.62) / 0.22).toFixed(4));
-  body.classList.toggle('is-content', window.scrollY > startOffset() + scrollDistance() + window.innerHeight * 0.45);
-  desiredFrame = progress * (frameCount - 1) + 1;
-  progressLabel.textContent = `${Math.round(target * 100)}%`;
-  drawFrame(desiredFrame);
-  if (displayedProgress !== target) scheduleRender();
-  else previousTimestamp = 0;
+  scheduleRender();
 }
 
 function scheduleRender() {
-  if (!animationRequest) animationRequest = requestAnimationFrame(render);
+  if (!animationRequest && !document.hidden && media?.ready) {
+    animationRequest = requestAnimationFrame(render);
+  }
 }
 
 function setTheme(theme, persist = false) {
   if (!['light', 'dark'].includes(theme)) return;
   activeTheme = theme;
+  releaseMedia(media);
+  media = { theme, urls: new Map(), cache: new Map(), pending: new Map(), controller: new AbortController(), ready: false };
+  drawing = false;
+  previousTimestamp = null;
+  body.dataset.playback = 'loading';
+  delete body.dataset.playbackError;
+  track.setAttribute('aria-busy', 'true');
+  statusLabel.textContent = 'در حال آماده‌سازی پس‌زمینه…';
   document.documentElement.dataset.theme = theme;
   body.dataset.theme = theme;
-  poster.src = `/files/blender_files/landingpage_logo_${theme}/storyboard/frame_0144.png`;
+  poster.src = frameUrl(theme, frameCount);
   document.querySelector('meta[name="theme-color"]').content = theme === 'light' ? '#10142c' : '#0d0e12';
   document.querySelectorAll('[data-select-theme]').forEach(control => {
     control.setAttribute('aria-pressed', String(control.dataset.selectTheme === theme));
   });
-  const edition = document.querySelector('.edition');
-  edition.textContent = theme === 'light' ? 'VIOLET / DAY' : 'GRAPHITE / NIGHT';
+  document.querySelector('.edition').textContent = theme === 'light' ? 'VIOLET / DAY' : 'GRAPHITE / NIGHT';
   if (persist) {
     try { localStorage.setItem('baadehasht-theme', theme); } catch {}
   }
-  requestId += 1;
-  drawnKey = '';
-  body.classList.remove('media-failed');
-  drawFrame(desiredFrame);
-  warmFrames(theme);
-  scheduleRender();
+  prepareMedia(media);
 }
 
-function resize() {
-  track.style.setProperty('--scrub-distance', `${scrollDistance()}px`);
-  scheduleRender();
-}
-
-window.addEventListener('scroll', scheduleRender, { passive: true });
-window.addEventListener('resize', resize, { passive: true });
-window.addEventListener('pageshow', scheduleRender);
-document.addEventListener('visibilitychange', scheduleRender);
+window.addEventListener('scroll', updateScrollProgress, { passive: true });
+window.addEventListener('resize', updateScrollProgress, { passive: true });
+window.addEventListener('pageshow', () => { previousTimestamp = null; scheduleRender(); updateScrollProgress(); });
+document.addEventListener('visibilitychange', () => { previousTimestamp = null; scheduleRender(); });
+document.querySelectorAll('a[href="#discover"], a[href="#conversations"]').forEach(link => {
+  link.addEventListener('click', () => {
+    if (!contentRevealed) finishIntro();
+    if (!media?.ready) body.dataset.playback = 'loading';
+  });
+});
+document.querySelector('.scroll-cue').addEventListener('click', event => {
+  event.preventDefault();
+  document.querySelector('#the-idea').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+window.addEventListener('online', () => {
+  if (body.dataset.playback === 'fallback') setTheme(activeTheme);
+});
 if (adaptive) {
   document.querySelectorAll('[data-select-theme]').forEach(control => {
     control.addEventListener('click', () => setTheme(control.dataset.selectTheme, true));
@@ -165,5 +283,7 @@ if (adaptive) {
   });
 }
 
-resize();
+body.classList.add('has-experience');
+setupTextReveals();
 setTheme(activeTheme);
+updateScrollProgress();

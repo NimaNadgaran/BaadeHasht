@@ -4,7 +4,7 @@ Run `npm run dev` from the project root. No dependencies or build step are requi
 
 ## Pages
 
-- `/` — main website with day/night controls. Day uses the vivid light Blender animation; night uses the graphite dark animation. Switching themes stays on the same page and at the same animation frame. The choice is saved locally; without a saved choice, the system color scheme is used.
+- `/` — main website with day/night controls. Day uses the vivid light Blender animation; night uses the graphite dark animation. Switching themes preserves the page, text position and animation phase while the new theme loads. The choice is saved locally; without a saved choice, the system color scheme is used.
 - `/frontend/3d_light/` — independent light preview.
 - `/frontend/3d_dark/` — independent dark preview.
 - `/frontend/basic/` — preserved original frontend.
@@ -12,15 +12,19 @@ Run `npm run dev` from the project root. No dependencies or build step are requi
 
 The old `d3_light`, `d3_dark` and `basic_web` URLs redirect to their renamed counterparts. Directory URLs work with or without the final slash.
 
-## Scroll animation
+## Background animation
 
 The animation now uses a canvas and **144 actual Blender-rendered frames**, rather than seeking a paused video. This avoids autoplay permissions, video-decoder delays and timelines advancing without the picture changing. No Blender scenes are re-rendered or modified.
 
-The WebP frame sets in `frontend/3d_light/frames` and `frontend/3d_dark/frames` are derived from the existing ball-free renders. The complete sequences weigh approximately 2.48 MB and 1.35 MB respectively. Images are fetched ahead into the browser cache, with a bounded 24-frame decoded-image cache.
+The WebP frame sets in `frontend/3d_light/frames` and `frontend/3d_dark/frames` are derived from the existing ball-free renders. The complete sequences weigh approximately 2.48 MB and 1.35 MB respectively. Before starting, the selected theme's complete sequence is downloaded into local blob URLs and the first eight frames are decoded. Font and header-logo loading run alongside this, with at most two additional seconds of waiting; a slow or broken interface asset cannot stop background playback. Six parallel download workers and a bounded 16-frame decoded-image cache limit memory use; nearby frames are decoded ahead of playback. Posters reuse the lightweight final WebP frame. The other theme is not downloaded until selected.
 
-The scene maps to **2400 pixels of desktop scroll / 1800 pixels on mobile**, giving the camera movement a gentler pace at native browser scroll speed. Time-based easing and blending between adjacent frames soften wheel steps. These distances are controlled by `data-scroll-distance` and `data-mobile-scroll-distance` on each page's body. Native wheel, touch, trackpad and keyboard input work in either direction. No wheel events are captured or blocked. The camera journey, overhead reveal, moving reflection and final hold are all retained.
+After loading, the original camera journey plays automatically at its normal **six-second duration**, independent of scrolling. The text appears only after the intro, then scrolls natively over the fixed logo background. Existing navigation links allow readers to bypass the intro. The small upper-left percentage measures document scrolling, not playback.
 
-Reduced-motion preferences remove the extra catch-up interpolation, but do not silently disable intentional scroll scrubbing or collapse the scroll space. The only animation UI is a small, non-interactive scroll percentage in the upper-left corner; playback controls, timeline, frame counts and duration labels are omitted. Failed-frame and no-JavaScript cases show the final logo with the rest of the site accessible.
+At the handoff, the reading shade crossfades over 2.4 seconds instead of switching abruptly. A full-height opening screen fades in the eyebrow, headline lines and short introduction in sequence, followed by a small “Scroll” cue. The main sections remain below the fold and fade in as they enter the viewport, rather than appearing together on a timer. Reduced-motion settings remove the text lifts but retain the requested soft opacity fades. The original intro and continuous light-loop playback are unchanged.
+
+Once the intro ends, the stationary-camera light sweep (frames **84–132**) loops backwards and forwards over **12 seconds per full round trip**. Cosine timing slows the light at either edge and accelerates it through the middle; adjacent-frame blending keeps transitions smooth. The intro's final hold matches the loop's right-hand endpoint, so the camera journey never restarts. The loop uses already-downloaded frames and requires no additional media or Blender modifications. Background tabs pause the animation clock. Theme changes preload the new sequence without hiding already-revealed text or replaying the intro.
+
+Background autoplay is explicitly enabled for both the intro and light loop, including when the operating system requests reduced motion; that preference still disables supplementary CSS transitions and text-reveal effects. Failed header-image or font loads do not disable the background. Failed frame downloads or 45 seconds without download progress reveal the content with a static poster; reconnecting retries the background. The timeout resets after every downloaded frame, allowing slow but progressing connections to finish. Failures include a console warning and a `data-playback-error` reason on the body rather than silently appearing paused. No-JavaScript visitors also retain a poster and readable content. Three clearly identified sample Persian stories demonstrate the reading/scrolling layout.
 
 ## Structure
 
@@ -32,7 +36,7 @@ The retained `media/intro.mp4` files are optional video exports, no longer used 
 
 ## Media quality and cleanup
 
-The website uses 144 compressed WebP frames per theme, from a six-second, 24 fps source. The light sequence is approximately 2.48 MB and the dark sequence 1.35 MB. Resolution and source frame count are intentionally unchanged to avoid increasing downloads on slower connections. Existing animation easing and adjacent-frame blending improve visual continuity without downloading extra frames. MP3 is an audio format; it is not the format used for this animation.
+The website uses 144 compressed WebP frames per theme, from a six-second, 24 fps source. The light sequence is approximately 2.48 MB and the dark sequence 1.35 MB. Resolution and source frame count are intentionally unchanged to avoid increasing downloads on slower connections. Adjacent-frame blending improves visual continuity without downloading extra frames. MP3 is an audio format; it is not the format used for this animation.
 
 Regenerable Blender `frames/` and `frames_final/` directories, render logs and Python bytecode caches have been removed from `files/`. Editable Blender scenes, build/render scripts, scene metadata, preview videos, storyboards, branding images, the web font and its license are preserved. Runtime WebP sequences under `frontend/` are also preserved.
 
