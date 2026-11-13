@@ -1,0 +1,49 @@
+{
+  "blender": "5.2.2 LTS",
+  "fps": 24,
+  "frames": 144,
+  "duration_seconds": 6.0,
+  "preview_resolution": [
+    1280,
+    720
+  ],
+  "source_logo": "files/images/BlackTBack.png",
+  "source_wordmark": "files/images/BlackTFront.png",
+  "packed_textures": true,
+  "road_camera_pitch_degrees": 11,
+  "backdrop": "Violet-blue satin cyclorama, fine grain and luminous elliptical falloff",
+  "route_reference": "according_image.png",
+  "path_end_frame": 61,
+  "takeoff_end_frame": 71,
+  "rotation_end_frame": 79,
+  "sweep_start_frame": 84,
+  "sweep_end_frame": 132,
+  "sweep_direction": "left to right, single pass, stops off-axis",
+  "storyboard_frames": [
+    1,
+    15,
+    30,
+    46,
+    61,
+    71,
+    75,
+    79,
+    96,
+    108,
+    120,
+    132,
+    144
+  ],
+  "variant": "light",
+  "source_scene": "../landing_page_logo_try2_vivid/landing_page_logo_try2_vivid.blend",
+  "source_scene_sha256": "ee44e63beea787fb5106c3d2c943238dd4c35ee8a0acea5e5c0ca04271937fb2",
+  "motion_preserved": true,
+  "final_resolution": [
+    1920,
+    1080
+  ],
+  "final_render_samples": 128,
+  "name": "landingpage_logo_light",
+  "leading_ball_removed": true,
+  "camera_motion_preserved": true
+}
