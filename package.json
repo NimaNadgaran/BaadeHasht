@@ -4,6 +4,9 @@
   "private": true,
   "scripts": {
     "dev": "node frontend/server.cjs",
-    "start": "node frontend/server.cjs"
-  }
+    "start": "node frontend/server.cjs",
+    "seed": "node backend/seed.cjs",
+    "test": "node --test tests/*.test.cjs"
+  },
+  "engines": { "node": ">=24.7.0" }
 }

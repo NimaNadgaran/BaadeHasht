@@ -22,6 +22,7 @@ let introElapsed = 0;
 let loopElapsed = 0;
 let contentRevealed = false;
 let drawing = false;
+let lastIntroClick = null;
 
 function setupTextReveals() {
   if (!('IntersectionObserver' in window)) return;
@@ -60,6 +61,15 @@ function finishIntro() {
   revealContent();
   body.dataset.playback = 'loop';
   statusLabel.textContent = 'متن‌ها آماده‌اند. برای خواندن ادامه، اسکرول کنید.';
+}
+
+function isInternalEntry() {
+  if (!document.referrer) return false;
+  try {
+    return new URL(document.referrer).origin === window.location.origin;
+  } catch {
+    return false;
+  }
 }
 
 function frameUrl(theme, frame) {
@@ -255,6 +265,23 @@ function setTheme(theme, persist = false) {
   prepareMedia(media);
 }
 
+document.addEventListener('click', event => {
+  if (body.dataset.playback !== 'intro' || event.button !== 0 ||
+      event.target.closest('a, button, input, select, textarea, [role="button"]')) {
+    lastIntroClick = null;
+    return;
+  }
+  if (lastIntroClick && event.timeStamp - lastIntroClick.timeStamp <= 400 &&
+      Math.hypot(event.clientX - lastIntroClick.clientX, event.clientY - lastIntroClick.clientY) <= 32) {
+    lastIntroClick = null;
+    finishIntro();
+    previousTimestamp = null;
+    drawFrame(lightFrame());
+    return;
+  }
+  lastIntroClick = { timeStamp: event.timeStamp, clientX: event.clientX, clientY: event.clientY };
+});
+
 window.addEventListener('scroll', updateScrollProgress, { passive: true });
 window.addEventListener('resize', updateScrollProgress, { passive: true });
 window.addEventListener('pageshow', () => { previousTimestamp = null; scheduleRender(); updateScrollProgress(); });
@@ -285,5 +312,6 @@ if (adaptive) {
 
 body.classList.add('has-experience');
 setupTextReveals();
+if (isInternalEntry()) finishIntro();
 setTheme(activeTheme);
 updateScrollProgress();

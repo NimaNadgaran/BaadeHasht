@@ -1,6 +1,10 @@
 const http = require('node:http');
 const fs = require('node:fs');
 const path = require('node:path');
+const envFile = path.resolve(__dirname, '..', '.env');
+if (fs.existsSync(envFile)) process.loadEnvFile(envFile);
+const { createApp } = require('../backend/app.cjs');
+const app = createApp();
 
 const root = path.resolve(__dirname, '..');
 const initialPort = Number(process.env.PORT || 5173);
@@ -16,10 +20,19 @@ const mimeTypes = {
   '.svg': 'image/svg+xml',
   '.mp4': 'video/mp4',
   '.woff2': 'font/woff2',
+  '.ttf': 'font/ttf',
   '.txt': 'text/plain; charset=utf-8',
 };
 
-const server = http.createServer((request, response) => {
+const server = http.createServer(async (request, response) => {
+  try {
+    if (await app.handle(request, response)) return;
+  } catch (error) {
+    console.error(error);
+    if (!response.headersSent) response.writeHead(500).end('Internal server error');
+    else response.destroy();
+    return;
+  }
   if (!['GET', 'HEAD'].includes(request.method)) {
     response.writeHead(405, { Allow: 'GET, HEAD' }).end();
     return;
@@ -33,6 +46,10 @@ const server = http.createServer((request, response) => {
   }
   if (pathname.includes('\\') || pathname.includes('\0')) {
     response.writeHead(404).end('Not found');
+    return;
+  }
+  if (pathname === '/frontend/home.html') {
+    response.writeHead(302, { Location: '/' }).end();
     return;
   }
   const aliases = { '/frontend/d3_light': '/frontend/3d_light', '/frontend/d3_dark': '/frontend/3d_dark', '/frontend/basic_web': '/frontend/basic' };
@@ -51,9 +68,9 @@ const server = http.createServer((request, response) => {
   const relative = path.relative(root, filePath);
   const normalized = relative.split(path.sep).join('/');
   const extension = path.extname(filePath);
-  const isFrontend = normalized.startsWith('frontend/') && frontendExtensions.has(extension)
+  const isFrontend = normalized.startsWith('frontend/') && !normalized.startsWith('frontend/basic/node_modules/') && frontendExtensions.has(extension)
     && !normalized.split('/').some(segment => segment.startsWith('.'));
-  const isOriginalAsset = /^(files\/(images|videos|fonts)\/)[^/]+\.(png|jpg|mp4|woff2|txt)$/.test(normalized);
+  const isOriginalAsset = /^(files\/(images|videos|fonts)\/)[^/]+\.(png|jpg|mp4|woff2|ttf|txt)$/.test(normalized);
   const isStoryboard = /^files\/blender_files\/landingpage_logo_(dark|light)\/(storyboard|frames)\/frame_\d{4}\.png$/.test(normalized);
   if (relative.startsWith('..') || path.isAbsolute(relative) || !(isFrontend || isOriginalAsset || isStoryboard)) {
     response.writeHead(404).end('Not found');
@@ -108,16 +125,18 @@ const server = http.createServer((request, response) => {
 server.on('error', error => {
   if (error.code === 'EADDRINUSE' && !process.env.PORT && port < initialPort + 10) {
     port += 1;
-    server.listen(port, '127.0.0.1');
+    server.listen(port, process.env.HOST || '127.0.0.1');
     return;
   }
   console.error(`Unable to start the preview: ${error.message}`);
   process.exitCode = 1;
 });
 
-server.listen(port, '127.0.0.1', () => {
+server.listen(port, process.env.HOST || '127.0.0.1', () => {
   console.log(`BaadeHasht frontends: http://localhost:${port}/`);
   for (const variant of ['basic', '3d_light', '3d_dark']) {
     console.log(`  ${variant}: http://localhost:${port}/frontend/${variant}/`);
   }
 });
+
+for (const signal of ['SIGINT', 'SIGTERM']) process.on(signal, () => server.close(() => { app.close(); process.exit(0); }));
