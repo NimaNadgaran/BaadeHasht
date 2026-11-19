@@ -57,15 +57,15 @@ function validate(name, input, existing = {}) {
     output.linkedin = url(input.linkedin, 'LinkedIn', domains.linkedin);
   }
   if (name === 'guests') {
-    output.slug = text(input.slug || output.name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, ''), 'نامک', 180, true);
+    output.slug = text(input.slug || existing.slug || output.name.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '-').replace(/^-|-$/g, ''), 'نامک', 180, true);
     if (!/^[\p{L}\p{N}-]+$/u.test(output.slug)) fail('نامک تنها شامل حروف، عدد و خط تیره است.');
     output.tagline = text(input.tagline, 'معرفی کوتاه', 250);
     output.shortBio = text(input.shortBio, 'توضیح', 2000);
-    output.longBio = text(input.longBio, 'زندگی‌نامه', 15000);
+    output.longBio = text(input.longBio, 'ادامه توضیح', 15000);
     for (const key of ['youtube', 'spotify', 'castbox']) output[key] = url(input[key], key, domains[key]);
     output.published = boolean(input.published);
-    output.state = choice(input.state || 'First Talk', states, 'مرحله');
-    output.assignedAdmin = text(input.assignedAdmin, 'مسئول', 100);
+    output.state = choice(input.state || existing.state || 'First Talk', states, 'مرحله');
+    output.assignedAdmin = text(input.assignedAdmin ?? existing.assignedAdmin, 'مسئول', 100);
     output.notes = text(input.notes, 'یادداشت خصوصی', 5000);
     output.stateChangedAt = output.state === existing.state ? existing.stateChangedAt : new Date().toISOString();
   } else if (name === 'episodes') {
@@ -73,7 +73,7 @@ function validate(name, input, existing = {}) {
     output.description = text(input.description, 'توضیح', 10000);
     output.youtubeId = youtubeId(text(input.youtubeId, 'YouTube', 2000));
     output.thumbnail = media(input.thumbnail, 'تصویر');
-    output.status = choice(input.status, ['upcoming', 'published', 'archived'], 'وضعیت');
+    output.status = choice(input.status, ['published', 'archived'], 'وضعیت');
     if (output.status === 'published' && !output.youtubeId) fail('ویدیوی منتشرشده به لینک یوتیوب نیاز دارد.');
     const date = new Date(input.publishAt);
     if (!Number.isFinite(date.getTime())) fail('زمان انتشار معتبر وارد کنید.');
@@ -94,13 +94,10 @@ function validate(name, input, existing = {}) {
     }
     output.font = choice(input.font || 'Vazirmatn', ['Vazirmatn', 'Tahoma', 'Arial'], 'فونت');
     output.radius = integer(input.radius ?? 3, 'گردی گوشه', 0, 40);
-    output.defaultTheme = choice(input.defaultTheme || 'system', ['system', 'light', 'dark'], 'پوسته');
+    output.defaultTheme = choice(input.defaultTheme || 'light', ['system', 'light', 'dark'], 'پوسته');
     output.heroEnabled = boolean(input.heroEnabled);
     output.videoMode = choice(input.videoMode, ['manual', 'automatic'], 'حالت ویدیو');
     output.videoCount = integer(input.videoCount, 'تعداد ویدیو', 1, 24);
-    output.channel = text(input.channel, 'کانال یوتیوب', 100);
-    if (output.channel && !/^(UC[\w-]{22}|@[\w.-]{3,90})$/.test(output.channel)) fail('شناسه UC یا handle با @ وارد کنید.');
-    output.showUpcoming = boolean(input.showUpcoming);
     for (const key of Object.keys(domains)) output[key] = url(input[key], key, domains[key]);
     output.contactEmail = input.contactEmail ? email(input.contactEmail) : '';
     output.analyticsDomain = text(input.analyticsDomain, 'دامنه آمار', 253);

@@ -304,6 +304,8 @@ if (adaptive) {
     control.addEventListener('click', () => setTheme(control.dataset.selectTheme, true));
   });
   window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', event => {
+    const siteDefault = document.documentElement.dataset.defaultTheme;
+    if (['light', 'dark'].includes(siteDefault)) return;
     let stored;
     try { stored = localStorage.getItem('baadehasht-theme'); } catch {}
     if (!stored) setTheme(event.matches ? 'light' : 'dark');

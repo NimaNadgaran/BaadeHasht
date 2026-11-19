@@ -7,7 +7,6 @@ const http = require('node:http');
 const crypto = require('node:crypto');
 const { createApp } = require('../backend/app.cjs');
 const { hashPassword, digest, token, states } = require('../backend/database.cjs');
-const { videos } = require('../backend/integrations.cjs');
 
 const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'baadehasht-test-'));
 const originalFetch = global.fetch;
@@ -55,7 +54,7 @@ function client() {
 }
 
 before(async () => {
-  app = createApp({ dataDirectory: directory, config: { origin: '', production: false, resendKey: 'mock-key', emailFrom: 'test@example.com', youtubeKey: '' } });
+  app = createApp({ dataDirectory: directory, config: { origin: '', production: false, resendKey: 'mock-key', emailFrom: 'test@example.com' } });
   app.database.prepare('INSERT INTO admins(id,name,email,password,role,created_at) VALUES (?,?,?,?,?,?)').run(superId, 'Test Super', 'super@example.com', await hashPassword(password), 'super', new Date().toISOString());
   server = http.createServer(async (request, response) => {
     if (!await app.handle(request, response)) response.writeHead(404).end();
@@ -148,7 +147,7 @@ test('landing navigation and podcast copy are frontend-managed, not replaced by 
     const navigation = /<nav class="header-links"[^>]*>([\s\S]*?)<\/nav>/.exec(home.text)[1];
     assert.deepEqual([...navigation.matchAll(/href="([^"]+)"/g)].map(match => match[1]), ['/guests', '/episodes', '/about']);
     for (const label of ['مهمان‌ها', 'گفت‌وگوها', 'دربارهٔ ما']) assert.ok(navigation.includes(label));
-    for (const text of ['بعد از هشت ترم،', 'داستان ادامه داره.', 'کار، ارشد یا اپلای؟', 'رایگان', 'تجربه‌های دیگران نسخهٔ آماده نیستن']) assert.ok(home.text.includes(text), text);
+    for (const text of ['بعد از هشت ترم،', 'داستان ادامه داره.', 'کار، ارشد یا اپلای؟', 'رایگان', 'تجربهٔ دیگران نسخهٔ آماده نیست']) assert.ok(home.text.includes(text), text);
     assert.ok(!home.text.includes('LEGACY'));
     assert.ok(!home.text.includes('این متن‌ها نمونه‌اند'));
     assert.ok(!home.text.includes('نسخهٔ اصلی'));
@@ -216,21 +215,21 @@ test('episodes, manual pins and video display preferences persist', async () => 
   const created = await semi.request('/api/admin/episodes/new', { title: 'Published test', description: 'Test episode', youtubeId: 'abcdefghijk', publishAt: '2020-01-01T00:00:00Z', status: 'published', pinned: true, guestId: guest.id });
   assert.equal(created.status, 201, created.text);
   episode = created.data;
-  assert.equal((await semi.request('/api/admin/episodes/new', { title: 'Upcoming test', publishAt: '2030-01-01T00:00:00Z', status: 'upcoming' })).status, 201);
+  assert.equal((await semi.request('/api/admin/episodes/new', { title: 'Archived test', publishAt: '2030-01-01T00:00:00Z', status: 'archived' })).status, 201);
   const settings = app.store.settings();
-  const saved = await semi.request('/admin/display', { videoMode: 'manual', videoCount: 4, channel: '', showUpcoming: false, about: 'Not editable', logo: '/files/images/BlackTBack.png' });
+  const saved = await semi.request('/admin/display', { videoMode: 'manual', videoCount: 4, about: 'Not editable', logo: '/files/images/BlackTBack.png' });
   assert.equal(saved.status, 303, saved.text);
   assert.equal(app.store.settings().about, settings.about);
   assert.equal(app.store.settings().logo, settings.logo);
   const home = await client().request('/');
   assert.match(home.text, /Published test/);
-  assert.ok(!home.text.includes('Upcoming test'));
+  assert.ok(!home.text.includes('Archived test'));
   assert.match(home.text, /frontend\/shared\/experience.js/);
   assert.match(home.text, /frontend\/shared\/experience.css/);
-  assert.equal((await client().request('/api/public')).data.upcoming.length, 0);
+  assert.ok(!Object.hasOwn((await client().request('/api/public')).data, 'upcoming'));
   const secondApp = createApp({ dataDirectory: directory, config: { production: false, origin: '' } });
   assert.equal(secondApp.store.all('episodes').length, 2);
-  assert.equal(secondApp.store.settings().showUpcoming, false);
+  assert.equal(secondApp.store.settings().videoCount, 4);
   secondApp.close();
 });
 
@@ -325,22 +324,6 @@ test('expired sessions cannot read admin data and logout revokes the current ses
   await visitor.login('semi@example.com');
   assert.equal((await visitor.request('/admin/logout', {})).status, 303);
   assert.equal((await visitor.request('/api/admin/session')).status, 401);
-});
-
-test('YouTube data caches for 25 minutes and gracefully falls back on failure', async () => {
-  const settings = { ...app.store.settings(), videoMode: 'automatic', channel: '@baadehasht', videoCount: 4 };
-  let calls = 0;
-  global.fetch = async url => {
-    calls += 1;
-    return new Response(JSON.stringify(String(url).includes('/channels?') ? { items: [{ contentDetails: { relatedPlaylists: { uploads: 'UPLOADS' } } }] } : { items: [{ contentDetails: { videoId: 'abcdefghijk', videoPublishedAt: '2020-01-01T00:00:00Z' }, snippet: { title: 'Automatic video', description: 'Test' } }] }), { status: 200 });
-  };
-  assert.equal((await videos(app.database, settings, { youtubeKey: 'test' }, [])).episodes[0].title, 'Automatic video');
-  assert.equal((await videos(app.database, settings, { youtubeKey: 'test' }, [])).source, 'youtube');
-  assert.equal(calls, 2);
-  global.fetch = async () => { throw new Error('Simulated quota failure'); };
-  assert.equal((await videos(app.database, settings, { youtubeKey: 'test' }, [], true)).source, 'cached');
-  assert.equal((await videos(app.database, { ...settings, channel: '@other' }, { youtubeKey: 'test' }, [{ title: 'Fallback' }], true)).episodes[0].title, 'Fallback');
-  assert.equal((await videos(app.database, settings, {}, [{ title: 'Manual' }])).source, 'manual');
 });
 
 test('persistent rate limits stop repeated failed logins', async () => {

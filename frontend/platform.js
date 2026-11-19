@@ -78,4 +78,75 @@
     } catch (error) { notice.textContent = error.message; notice.hidden = false; notice.scrollIntoView({ block: 'center' }); }
     finally { submit.disabled = false; }
   }));
+
+  /* Guest modal popup on episode cards */
+  (function () {
+    const guestsDataEl = document.getElementById('baadehasht-guests-data');
+    const modal = document.getElementById('guest-modal');
+    const overlay = document.querySelector('.guest-modal-overlay');
+    const body = document.getElementById('guest-modal-body');
+    const closeBtn = document.querySelector('.guest-modal-close');
+    if (!guestsDataEl || !modal || !body) return;
+
+    let guests = [];
+    try { guests = JSON.parse(guestsDataEl.textContent || '[]'); } catch { guests = []; }
+
+    function escapeHtml(str) {
+      const div = document.createElement('div');
+      div.textContent = str;
+      return div.innerHTML;
+    }
+
+    function renderGuestCard(guest) {
+      const shortBio = guest.shortBio || '';
+      const more = shortBio.length > 260 ? [shortBio, guest.longBio].filter(Boolean).join('\n\n') : guest.longBio;
+      const links = [];
+      if (guest.linkedin) links.push(`<a class="button subtle" href="${escapeHtml(guest.linkedin)}" target="_blank" rel="noopener noreferrer">LinkedIn ↗</a>`);
+      if (guest.youtube) links.push(`<a class="button subtle" href="${escapeHtml(guest.youtube)}" target="_blank" rel="noopener noreferrer">YouTube ↗</a>`);
+      if (guest.castbox) links.push(`<a class="button subtle" href="${escapeHtml(guest.castbox)}" target="_blank" rel="noopener noreferrer">Castbox ↗</a>`);
+      if (guest.spotify) links.push(`<a class="button subtle" href="${escapeHtml(guest.spotify)}" target="_blank" rel="noopener noreferrer">Spotify ↗</a>`);
+      const photoHtml = guest.photo
+        ? `<img src="${escapeHtml(guest.photo)}" alt="${escapeHtml(guest.name)}" loading="lazy" width="640" height="640">`
+        : `<div class="portrait-placeholder" aria-hidden="true">∞</div>`;
+      return `
+        <article class="person-card">
+          ${photoHtml}
+          <div class="card-body">
+            ${guest.tagline ? `<p class="eyebrow">${escapeHtml(guest.tagline)}</p>` : ''}
+            <h2>${escapeHtml(guest.name)}</h2>
+            <p>${escapeHtml(shortBio.slice(0, 260))}${shortBio.length > 260 ? '…' : ''}</p>
+            ${more ? `<details><summary>بیشتر بخوانید</summary><p>${escapeHtml(more)}</p></details>` : ''}
+            ${links.length ? `<div class="link-row">${links.join('')}</div>` : ''}
+          </div>
+        </article>
+      `;
+    }
+
+    function openModal(guestId) {
+      const guest = guests.find(g => g.id === guestId);
+      if (!guest) return;
+      body.innerHTML = renderGuestCard(guest);
+      modal.classList.add('visible');
+      modal.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+    }
+
+    function closeModal() {
+      modal.classList.remove('visible');
+      modal.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+      body.innerHTML = '';
+    }
+
+    document.querySelectorAll('.guest-btn').forEach(btn => {
+      btn.addEventListener('click', () => openModal(btn.getAttribute('data-guest-id')));
+    });
+
+    closeBtn?.addEventListener('click', closeModal);
+    overlay?.addEventListener('click', closeModal);
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && modal.classList.contains('visible')) closeModal();
+    });
+  })();
 })();

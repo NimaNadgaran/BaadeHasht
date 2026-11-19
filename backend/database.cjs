@@ -23,8 +23,8 @@ const defaults = {
   heroDescription: 'زاویهٔ نگاهت را عوض کن.\nگاهی یک گفت‌وگو، دنیای تازه‌ای پیش روی ما می‌گذارد.',
   about: [about.title, ...about.paragraphs].join('\n\n'),
   logo: '/files/images/logo_transparent.png', poster: '', heroAsset: '', heroEnabled: true,
-  primary: '', secondary: '', accent: '', font: 'Vazirmatn', radius: 3, defaultTheme: 'system',
-  videoMode: 'manual', videoCount: 4, channel: '', showUpcoming: true,
+  primary: '', secondary: '', accent: '', font: 'Vazirmatn', radius: 3, defaultTheme: 'light',
+  videoMode: 'manual', videoCount: 4,
   youtube: 'https://www.youtube.com/@baadehasht', linkedin: '', spotify: '', castbox: '',
   contactEmail: '', analyticsDomain: '', privacy: '', terms: '',
   homeCopy: {},
@@ -76,6 +76,10 @@ function openDatabase(directory) {
     PRAGMA user_version=1;
   `);
   database.prepare('INSERT OR IGNORE INTO settings VALUES (1, ?)').run(JSON.stringify(defaults));
+  for (const row of database.prepare('SELECT id, data FROM episodes').all()) {
+    const episode = JSON.parse(row.data);
+    if (episode.status === 'upcoming') database.prepare('UPDATE episodes SET data=? WHERE id=?').run(JSON.stringify({ ...episode, status: 'published' }), row.id);
+  }
   return database;
 }
 

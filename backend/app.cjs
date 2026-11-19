@@ -4,7 +4,7 @@ const crypto = require('node:crypto');
 const { openDatabase, repository, hashPassword, verifyPassword, digest, token, states } = require('./database.cjs');
 const validation = require('./validation.cjs');
 const views = require('./views.cjs');
-const { videos, sendReset } = require('./integrations.cjs');
+const { sendReset } = require('./integrations.cjs');
 const about = require('../frontend/about.json');
 
 function createApp(options = {}) {
@@ -13,8 +13,7 @@ function createApp(options = {}) {
   const store = repository(database);
   const config = {
     origin: process.env.SITE_URL || '', production: process.env.NODE_ENV === 'production',
-    resendKey: process.env.RESEND_API_KEY, emailFrom: process.env.EMAIL_FROM,
-    youtubeKey: process.env.YOUTUBE_API_KEY, ...options.config,
+    resendKey: process.env.RESEND_API_KEY, emailFrom: process.env.EMAIL_FROM, ...options.config,
   };
   if (config.production && (!config.origin || !config.origin.startsWith('https://'))) throw new Error('Production requires an HTTPS SITE_URL.');
   if (config.origin) config.origin = new URL(config.origin).origin;
@@ -70,17 +69,12 @@ function createApp(options = {}) {
   async function publicData(query = '') {
     const settings = store.settings();
     const published = store.all('episodes').filter(episode => episode.status === 'published' && new Date(episode.publishAt).getTime() <= Date.now()).sort((first, second) => second.publishAt.localeCompare(first.publishAt));
-    const manual = published.filter(episode => episode.pinned).slice(0, settings.videoCount);
-    const feed = await videos(database, settings, config, manual);
+    const home = settings.videoMode === 'automatic' ? published.slice(0, settings.videoCount) : published.filter(episode => episode.pinned).slice(0, settings.videoCount);
     const guests = store.all('guests').filter(guest => guest.published).sort(order).map(guest => {
       const { id, name, slug, photo, tagline, shortBio, longBio, linkedin, youtube, castbox, spotify } = guest;
       return { id, name, slug, photo, tagline, shortBio, longBio, linkedin, youtube, castbox, spotify };
     });
-    const allEpisodes = [...new Map([...feed.episodes, ...published].map(episode => [episode.youtubeId || episode.id, episode])).values()];
-    return {
-      guests, team: about.team, episodes: allEpisodes, home: feed.episodes, source: feed.source, query,
-      upcoming: settings.showUpcoming ? store.all('episodes').filter(episode => episode.status === 'upcoming').sort((first, second) => first.publishAt.localeCompare(second.publishAt)) : [],
-    };
+    return { guests, team: about.team, episodes: published, home, source: settings.videoMode, query };
   }
   function saveEntity(collection, id, input, admin, pipeline = false) {
     const existing = store.all(collection).find(item => item.id === id);
@@ -160,8 +154,8 @@ function createApp(options = {}) {
         }
         if (pathname === '/api/public') {
           const data = await publicData(url.searchParams.get('q') || '');
-          const { siteName, tagline, about, logo, youtube, linkedin, spotify, castbox, contactEmail, showUpcoming } = store.settings();
-          return json(response, 200, { ...data, settings: { siteName, tagline, about, logo, youtube, linkedin, spotify, castbox, contactEmail, showUpcoming } });
+          const { siteName, tagline, about, logo, youtube, linkedin, spotify, castbox, contactEmail } = store.settings();
+          return json(response, 200, { ...data, settings: { siteName, tagline, about, logo, youtube, linkedin, spotify, castbox, contactEmail } });
         }
         if (pathname === '/api/admin/session') { requireAdmin(admin); return json(response, 200, { admin, csrf: admin.csrf, states }); }
         const apiCollection = /^\/api\/admin\/(guests|episodes|admins|audit)$/.exec(pathname);
@@ -186,7 +180,7 @@ function createApp(options = {}) {
         const settings = store.settings();
         if (pathname === '/') {
           let home = fs.readFileSync(path.join(__dirname, '..', 'frontend', 'home.html'), 'utf8');
-          home = home.replace('<template id="managed-episodes"></template>', views.homeEpisodes(data.home, data.upcoming, settings));
+          home = home.replace('<template id="managed-episodes"></template>', views.homeEpisodes(data.home));
           const footerLinks = ['linkedin', 'spotify', 'castbox'].filter(key => settings[key]).map(key => `<a href="${views.escape(settings[key])}" target="_blank" rel="noopener noreferrer">${key} ↗</a>`).join('');
           home = home.replace('<template id="managed-footer"></template>', footerLinks + (settings.contactEmail ? `<a href="mailto:${views.escape(settings.contactEmail)}">تماس با ما</a>` : ''));
           home = home.replace(/بعد هشت/g, () => views.escape(settings.siteName));
@@ -272,18 +266,10 @@ function createApp(options = {}) {
       }
       if (pathname === '/admin/display') {
         const current = store.settings();
-        const changes = { ...current, ...Object.fromEntries(['videoMode', 'videoCount', 'channel'].map(key => [key, input[key]])), showUpcoming: validation.boolean(input.showUpcoming) };
+        const changes = { ...current, ...Object.fromEntries(['videoMode', 'videoCount'].map(key => [key, input[key]])) };
         const settings = validation.validate('settings', changes);
         transaction(() => { store.saveSettings(settings); store.audit(admin, 'update', 'settings'); });
         return redirect(response, `/admin/episodes?message=${encodeURIComponent('تنظیمات ذخیره شد.')}`);
-      }
-      if (pathname === '/admin/refresh-videos') {
-        rateLimit(`youtube:${admin.id}`, 5, 3600000);
-        const settings = store.settings();
-        if (!config.youtubeKey || !settings.channel || settings.videoMode !== 'automatic') validation.fail('کلید API، کانال و حالت خودکار را تنظیم کنید.');
-        const result = await videos(database, settings, config, [], true);
-        store.audit(admin, 'refresh', 'youtube');
-        return redirect(response, `/admin/episodes?message=${encodeURIComponent(result.source === 'youtube' ? 'ویدیوها تازه شدند.' : 'یوتیوب در دسترس نیست؛ دادهٔ ذخیره‌شده حفظ شد.')}`);
       }
       const adminRoute = /^\/(?:api\/)?admin\/admins\/(new|[a-f0-9-]+)(?:\/(toggle|reset))?$/.exec(pathname);
       if (adminRoute) {

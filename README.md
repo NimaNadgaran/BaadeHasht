@@ -4,9 +4,9 @@ Run `npm run dev` from the project root with Node.js 24.7 or newer. No dependenc
 
 ## Podcast platform
 
-The existing home-page design, styles, camera animation and theme controls are preserved. Three links in the text cards lead to `/episodes`, `/guests` and `/about`. Published/pinned and upcoming episodes appear in an additional text section only when real content is entered by an admin. No fabricated guests, episodes or team members are seeded.
+The existing home-page design, styles, camera animation and theme controls are preserved. Three links in the text cards lead to `/episodes`, `/guests` and `/about`. A small set of episodes (manually chosen or the latest videos) appears in an additional text section only when real content is entered by an admin. No fabricated guests, episodes or team members are seeded.
 
-The backend includes persistent guest/episode management, the six-stage production pipeline, role-restricted admin account management, secure sessions, reset emails, media uploads and YouTube caching. About copy and team members live in `frontend/about.json`, not the admin panel. Header logos use `files/images/logo_transparent.png`. See `docs/ADMIN_GUIDE.md` for workflows and `docs/DEPLOYMENT.md` for deployment, storage, security and configuration.
+The backend includes persistent guest/episode management, the six-stage production pipeline, role-restricted admin account management, secure sessions, reset emails and media uploads. About copy and team members live in `frontend/about.json`, not the admin panel. Header logos use `files/images/logo_transparent.png`. See `docs/ADMIN_GUIDE.md` for workflows and `docs/DEPLOYMENT.md` for deployment, storage, security and configuration.
 
 ### First-time setup
 
@@ -14,13 +14,13 @@ The backend includes persistent guest/episode management, the six-stage producti
 2. Set `SUPER_ADMIN_NAME`, `SUPER_ADMIN_EMAIL`, and a unique `SUPER_ADMIN_PASSWORD` of 12–128 characters.
 3. Run `npm run seed`. This creates the sole Super Admin and never replaces an existing account.
 4. Remove `SUPER_ADMIN_PASSWORD` from `.env`, start `npm run dev`, then visit `/admin`.
-5. Configure Resend to enable reset emails; add a YouTube API key if automatic video mode is wanted. Keys stay on the server.
+5. Configure Resend to enable reset emails. Keys stay on the server.
 
 ### New routes
 
 - `/guests` — searchable two-column directory; only published guests, with missing links hidden.
 - `/guests/[slug]` — guest detail and published episodes.
-- `/episodes` — published and optionally upcoming videos.
+- `/episodes` — published videos in date order.
 - `/about` — compact editorial introduction with the `logo_edit_transparent.png` artwork and a button leading to the team page.
 - `/team` — dedicated behind-the-scenes team page. About copy and team entries are maintained in `frontend/about.json`.
 - `/privacy`, `/terms` — editable legal placeholders, not legal advice.
@@ -31,7 +31,7 @@ The backend includes persistent guest/episode management, the six-stage producti
 
 ### Validation
 
-`npm test` runs isolated database/HTTP integration tests, with mocked email/YouTube providers. `node tests/browser.cjs` additionally checks responsive pages, admin workflows and the original home animation if Playwright and a browser are available. Set `PLAYWRIGHT_MODULE` to an external Playwright package path and `BROWSER_CHANNEL=msedge` or `chrome` to use an installed browser. Browser screenshots go to ignored `.validation/`; tests use temporary databases, not live content.
+`npm test` runs isolated database/HTTP integration tests, with mocked email delivery. `node tests/browser.cjs` additionally checks responsive pages, admin workflows and the original home animation if Playwright and a browser are available. Set `PLAYWRIGHT_MODULE` to an external Playwright package path and `BROWSER_CHANNEL=msedge` or `chrome` to use an installed browser. Browser screenshots go to ignored `.validation/`; tests use temporary databases, not live content.
 
 ## Pages
 

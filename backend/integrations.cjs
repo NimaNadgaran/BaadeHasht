@@ -20,35 +20,4 @@ async function sendReset(database, admin, config) {
   }
 }
 
-async function videos(database, settings, config, manual, force = false) {
-  if (settings.videoMode !== 'automatic' || !settings.channel || !config.youtubeKey) return { episodes: manual, source: 'manual' };
-  const cacheKey = `youtube:${settings.channel}:${settings.videoCount}`;
-  const cached = database.prepare('SELECT * FROM cache WHERE id=?').get(cacheKey);
-  if (!force && cached && Date.now() - cached.updated < 25 * 60000) return { episodes: JSON.parse(cached.data), source: 'youtube' };
-  async function request(resource, params) {
-    const query = new URLSearchParams({ ...params, key: config.youtubeKey });
-    const response = await fetch(`https://www.googleapis.com/youtube/v3/${resource}?${query}`, { signal: AbortSignal.timeout(8000) });
-    if (!response.ok) throw new Error(`YouTube returned ${response.status}`);
-    return response.json();
-  }
-  try {
-    const channel = await request('channels', { part: 'contentDetails', ...(settings.channel.startsWith('@') ? { forHandle: settings.channel } : { id: settings.channel }) });
-    const playlistId = channel.items?.[0]?.contentDetails?.relatedPlaylists?.uploads;
-    if (!playlistId) throw new Error('YouTube channel not found');
-    const feed = await request('playlistItems', { part: 'snippet,contentDetails', playlistId, maxResults: String(settings.videoCount) });
-    const episodes = (feed.items || []).filter(item => /^[\w-]{11}$/.test(item.contentDetails?.videoId || '')).map(item => ({
-      id: item.contentDetails.videoId, youtubeId: item.contentDetails.videoId,
-      title: String(item.snippet.title), description: String(item.snippet.description || ''),
-      thumbnail: `https://i.ytimg.com/vi/${item.contentDetails.videoId}/hqdefault.jpg`,
-      publishAt: item.contentDetails.videoPublishedAt || item.snippet.publishedAt, status: 'published',
-    }));
-    if (!episodes.length) throw new Error('YouTube returned no public videos');
-    database.prepare('INSERT INTO cache VALUES (?,?,?) ON CONFLICT(id) DO UPDATE SET data=excluded.data,updated=excluded.updated').run(cacheKey, JSON.stringify(episodes), Date.now());
-    return { episodes, source: 'youtube' };
-  } catch (error) {
-    console.warn('YouTube fallback:', error.message);
-    return { episodes: cached ? JSON.parse(cached.data) : manual, source: cached ? 'cached' : 'manual' };
-  }
-}
-
-module.exports = { sendReset, videos };
+module.exports = { sendReset };

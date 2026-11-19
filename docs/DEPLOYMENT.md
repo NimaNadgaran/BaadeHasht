@@ -19,7 +19,7 @@ Requires Node **24.7+** with `node:sqlite` and `crypto.argon2`. Configuration is
 | `DATA_DIR` | Durable data path. Default `<repository>/data`. Relative paths resolve against the working directory. |
 | `SUPER_ADMIN_NAME`, `SUPER_ADMIN_EMAIL`, `SUPER_ADMIN_PASSWORD` | Required only for `npm run seed`. Exactly one Super Admin is created; reruns do not change credentials. Remove the password after setup. |
 | `RESEND_API_KEY`, `EMAIL_FROM` | Required for actual password-reset mail. Verify the sender/domain and SPF/DKIM with Resend. Missing configuration returns a service error. Public recovery acknowledgments remain neutral even if delivery fails (logged server-side), to prevent account enumeration; forced-reset delivery failures are shown to the Super Admin. Tokens are never exposed in logs or returned as a recovery bypass. |
-| `YOUTUBE_API_KEY` | Required for automatic home videos. Enable YouTube Data API v3 and restrict the key appropriately. Manual mode works without this key. Set the channel and display mode in the admin. |
+
 
 Do not trust arbitrary forwarded host or IP headers: this server uses the configured origin and socket address. Behind a reverse proxy the built-in IP limit is shared by the proxy address; retain it and add per-client-IP limits at the proxy. Account-specific limits also persist in SQLite. Do not make the process directly public without a TLS reverse proxy, request size/time limits and operational monitoring.
 
@@ -30,7 +30,7 @@ Do not trust arbitrary forwarded host or IP headers: this server uses the config
 3. For a VPS, proxy the HTTPS domain to the loopback Node port with Caddy/nginx. Forward the browser's `Origin` header unchanged. Set upstream body limit at least 8 MiB for encoded uploads; apply rate and timeout limits. Serve static assets through the application or use a narrowly scoped public-asset allowlist, never expose the repo root.
 4. Run the service as an unprivileged account with write access only to `DATA_DIR`, and configure restart-on-failure/log rotation. Keep `.git`, `.env`, backend source and data inaccessible to HTTP clients.
 5. Configure Resend, then test password reset on a real account and verify email delivery before handing over credentials. Add the six Semi Admin accounts as needed.
-6. Enter real guest/episode content, maintain About/team content in `frontend/about.json`, check published/draft boundaries, switch home modes, test disable/re-enable, and verify mobile layouts.
+6. Enter real guest/episode content, maintain About/team content in `frontend/about.json`, check published/archived boundaries, switch home modes, test disable/re-enable, and verify mobile layouts.
 7. Run `npm test`. For browser checks, install Playwright separately and run `node tests/browser.cjs` (optional `PLAYWRIGHT_MODULE`/`BROWSER_CHANNEL`). Tests isolate data in temporary directories and never touch production accounts. Provider tests are mocked; a passing test suite does not confirm live provider credentials, Lighthouse scores or production email delivery.
 
 ## Persistence and backups
@@ -47,7 +47,7 @@ Audit logs record the actor, action, entity and timestamp, not passwords, raw se
 - HTTP-only SameSite=Strict cookies, Secure in HTTPS/production, eight-hour server sessions with immediate revocation.
 - Every admin read/mutation checks an active account; account creation/enable/disable/forced reset are Super-only. The sole Super Admin cannot be disabled and only six Semi Admin records can exist.
 - Exact-origin checks plus CSRF tokens on every mutation, including login, logout, password recovery and uploads.
-- SQLite-backed login/reset rate limits survive restarts; upload and YouTube refresh limits protect provider/storage use.
+- SQLite-backed login/reset rate limits survive restarts; upload limits protect provider/storage use.
 - Single-use hashed reset tokens, 60-minute expiry, all sessions invalidated on password reset. Force-reset revokes the current password only after the email provider accepts the message.
 - Public guest serializers exclude internal production fields. Output is escaped; social links are validated against correct platform domains. Uploads validate content type, signature, size and generated filename; SVG/HTML are rejected.
 - Admin pages/API use noindex and no-store headers; public pages are server-rendered and sitemap/robots endpoints are supplied.

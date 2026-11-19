@@ -36,13 +36,11 @@ module.exports = function publicPage(path, data, settings, { shell, escape, imag
 
   if (path === '/guests') {
     const filtered = data.guests.filter(guest => `${guest.name} ${guest.tagline}`.toLowerCase().includes(data.query.toLowerCase()));
-    return render('آدم‌ها، فراتر از عنوان‌ها.', `
-      <section class="directory-opening"><div><p class="lead">هر آدم، یک جهان تجربه.</p><p>با مهمان‌های بعد هشت آشنا شوید؛ از انتخاب‌هایشان بخوانید و گفت‌وگوی نزدیک به سؤال خودتان را پیدا کنید.</p></div><div class="directory-emblem" aria-hidden="true"><span>مسیرهای متفاوت</span><strong>نقطهٔ اشتراک؟<br>کنجکاوی.</strong><span lang="en" dir="ltr">DIFFERENT PATHS. SHARED QUESTIONS.</span></div></section>
+    return render('مهمان‌ها', `
       <form class="search directory-search" method="get"><label for="guest-search">دنبال چه کسی می‌گردید؟<input id="guest-search" name="q" value="${escape(data.query)}" type="search" placeholder="نام مهمان یا حوزهٔ فعالیت…"></label><button class="button">جست‌وجو <span aria-hidden="true">↗</span></button>${data.query ? '<a class="text-action" href="/guests">همهٔ مهمان‌ها</a>' : ''}</form>
-      ${sectionHeading(data.query ? 'نتیجهٔ جست‌وجو' : 'مهمان‌های بعد هشت', filtered.length)}
+      ${sectionHeading(data.query ? 'نتیجهٔ جست‌وجو' : 'فهرست مهمان‌ها', filtered.length)}
       <div class="guest-grid">${filtered.map(guestCard).join('') || emptyState('↗', data.query ? 'هنوز به این نام نرسیده‌ایم.' : 'جای اولین روایت، اینجاست.', data.query ? 'نام دیگری را امتحان کنید یا همهٔ مهمان‌ها را ببینید.' : 'معرفی مهمان‌ها پس از انتشار، در این مجموعه قرار می‌گیرد.', data.query ? '/guests' : '/episodes', data.query ? 'دیدن همهٔ مهمان‌ها' : 'کشف گفت‌وگوها')}</div>
-      <div class="page-endnote"><p>گاهی یک تجربه، زاویهٔ نگاه را عوض می‌کند.</p><a class="text-action" href="/about">داستان ما <span aria-hidden="true">←</span></a></div>
-    `, 'guests', '03 / PEOPLE & PERSPECTIVES');
+    `, 'guests', '03 / GUEST DIRECTORY');
   }
 
   if (path.startsWith('/guests/')) {
@@ -52,12 +50,22 @@ module.exports = function publicPage(path, data, settings, { shell, escape, imag
     return render(guest.name, `<a class="back-link" href="/guests">← بازگشت به مهمان‌ها</a><article class="profile-layout"><div class="profile-portrait">${image(guest.photo, guest.name)}</div><div class="profile-copy">${guest.tagline ? `<p class="section-label">${escape(guest.tagline)}</p>` : ''}<h2>از نزدیک‌تر</h2><div class="prose">${escape(guest.longBio || guest.shortBio)}</div><div class="link-row">${links(guest)}</div></div></article>${sectionHeading('گفت‌وگوها با ' + escape(guest.name), episodes.length)}<div class="episode-grid">${episodes.map(episode => episodeCard(episode)).join('') || emptyState('◌', 'ادامهٔ این مسیر، در گفت‌وگو.', 'گفت‌وگوی این مهمان پس از انتشار، اینجا قرار می‌گیرد.', '/episodes', 'همهٔ گفت‌وگوها')}</div>`, 'profile', '03 / A CLOSER LOOK');
   }
 
+  const guestModalShell = () => `<div class="guest-modal" id="guest-modal" aria-hidden="true">
+    <div class="guest-modal-overlay"></div>
+    <div class="guest-modal-panel">
+      <button type="button" class="guest-modal-close" aria-label="بستن">×</button>
+      <div class="guest-modal-body" id="guest-modal-body"></div>
+      <a href="/guests" class="button guest-modal-list-btn">مشاهده لیست مهمان‌ها <span aria-hidden="true">↗</span></a>
+    </div>
+  </div>`;
+
   if (path === '/episodes') {
     return render('یک گفت‌وگو، یک زاویهٔ تازه.', `
       <section class="episode-opening"><div><span class="section-label">آرشیو گفت‌وگوها</span><p class="lead">از سؤال امروزت شروع کن.</p><p>کار، ادامهٔ تحصیل، اپلای و انتخاب‌های میان راه. مسیرهای مختلف را از زبان کسانی بشنوید که آن‌ها را زندگی کرده‌اند.</p><a class="text-action" href="#episode-library">کشف گفت‌وگوها <span aria-hidden="true">↓</span></a></div><div class="sound-art" aria-hidden="true"><span class="sound-orbit"></span><div class="sound-bars">${Array.from({ length: 19 }, (_, index) => `<i style="--bar:${18 + Math.round((Math.sin(index * 1.7) + 1) * 35)}%"></i>`).join('')}</div><span class="sound-caption" lang="en" dir="ltr">A LITTLE FURTHER. A LITTLE DEEPER.</span></div></section>
-      <section id="episode-library" class="episode-library">${sectionHeading('برای دیدن، شنیدن، فکر کردن.', data.episodes.length)}<div class="episode-grid">${data.episodes.map(episode => episodeCard(episode)).join('') || emptyState('▶', 'اولین گفت‌وگو در راه است.', 'این آرشیو با انتشار گفت‌وگوهای بعد هشت جان می‌گیرد. تا آن موقع، داستان شروع ما را بخوانید.', '/about', 'چرا بعد هشت؟')}</div></section>
-      ${settings.showUpcoming && data.upcoming.length ? `<section class="upcoming-section"><span class="section-label">ادامه دارد…</span>${sectionHeading('قرار بعدی ما')}<div class="episode-grid">${data.upcoming.map(episode => episodeCard(episode)).join('')}</div></section>` : ''}
+      <section id="episode-library" class="episode-library">${sectionHeading('برای دیدن، شنیدن، فکر کردن.', data.episodes.length)}<div class="episode-grid">${data.episodes.map(episode => episodeCard(episode, false, data.guests)).join('') || emptyState('▶', 'اولین گفت‌وگو در راه است.', 'این آرشیو با انتشار گفت‌وگوهای بعد هشت جان می‌گیرد. تا آن موقع، داستان شروع ما را بخوانید.', '/about', 'چرا بعد هشت؟')}</div></section>
       <div class="page-endnote"><p>تجربه‌ها برای به اشتراک گذاشتن‌اند.</p><a class="text-action" href="/guests">آشنایی با مهمان‌ها <span aria-hidden="true">←</span></a></div>
+      ${guestModalShell()}
+      <script id="baadehasht-guests-data" type="application/json">${JSON.stringify(data.guests)}</script>
     `, 'episodes', '04 / THE CONVERSATIONS');
   }
 
