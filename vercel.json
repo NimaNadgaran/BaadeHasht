@@ -3,7 +3,7 @@
   "buildCommand": "node scripts/build-vercel.cjs",
   "outputDirectory": "public",
   "functions": {
-    "api/index.cjs": {
+    "api/index.js": {
       "maxDuration": 30,
       "includeFiles": "frontend/home.html"
     }
