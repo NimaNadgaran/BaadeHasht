@@ -5,7 +5,7 @@
   "functions": {
     "api/index.cjs": {
       "maxDuration": 30,
-      "includeFiles": ["frontend/home.html"]
+      "includeFiles": "frontend/home.html"
     }
   },
   "redirects": [
