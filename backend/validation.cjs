@@ -37,7 +37,7 @@ function email(value) {
   return input;
 }
 function password(value) {
-  if (typeof value !== 'string' || value.length < 12 || value.length > 128) fail('گذرواژه باید بین ۱۲ تا ۱۲۸ نویسه باشد.');
+  if (typeof value !== 'string' || value.length < 6 || value.length > 128) fail('گذرواژه باید بین ۶ تا ۱۲۸ نویسه باشد.');
   return value;
 }
 function youtubeId(value) {
@@ -64,9 +64,13 @@ function validate(name, input, existing = {}) {
     output.longBio = text(input.longBio, 'ادامه توضیح', 15000);
     for (const key of ['youtube', 'spotify', 'castbox']) output[key] = url(input[key], key, domains[key]);
     output.published = boolean(input.published);
-    output.state = choice(input.state || existing.state || 'First Talk', states, 'مرحله');
+  } else if (name === 'pipeline') {
+    output.name = text(input.name ?? existing.name, 'نام', 150, true);
+    output.state = choice(input.state || existing.state || states[0], states, 'مرحله');
     output.assignedAdmin = text(input.assignedAdmin ?? existing.assignedAdmin, 'مسئول', 100);
-    output.notes = text(input.notes, 'یادداشت خصوصی', 5000);
+    output.notes = text(input.notes ?? existing.notes, 'یادداشت خصوصی', 5000);
+    output.topic = text(input.topic ?? existing.topic, 'موضوع گفت‌وگو', 500);
+    output.contact = text(input.contact ?? existing.contact, 'راه ارتباط', 500);
     output.stateChangedAt = output.state === existing.state ? existing.stateChangedAt : new Date().toISOString();
   } else if (name === 'episodes') {
     output.title = text(input.title, 'عنوان', 250, true);

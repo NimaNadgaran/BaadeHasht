@@ -76,17 +76,12 @@ function createApp(options = {}) {
     });
     return { guests, team: about.team, episodes: published, home, source: settings.videoMode, query };
   }
-  function saveEntity(collection, id, input, admin, pipeline = false) {
+  function saveEntity(collection, id, input, admin) {
     const existing = store.all(collection).find(item => item.id === id);
     if (id !== 'new' && !existing) validation.fail('مورد پیدا نشد.', 404);
-    let data;
-    if (pipeline) {
-      const allowed = ['name', 'state', 'assignedAdmin', 'notes'];
-      const changes = Object.fromEntries(allowed.filter(key => Object.hasOwn(input, key)).map(key => [key, input[key]]));
-      data = validation.validate('guests', { ...(existing || {}), ...changes }, existing);
-    } else data = validation.validate(collection, input, existing);
+    const data = validation.validate(collection, input, existing);
     if (collection === 'guests' && store.all('guests').some(guest => guest.id !== id && guest.slug === data.slug)) validation.fail('این نامک قبلاً استفاده شده است.');
-    if (collection === 'guests' && data.assignedAdmin && !admins().some(item => item.id === data.assignedAdmin && item.active)) validation.fail('مسئول باید یک مدیر فعال باشد.');
+    if (collection === 'pipeline' && data.assignedAdmin && !admins().some(item => item.id === data.assignedAdmin && item.active)) validation.fail('مسئول باید یک مدیر فعال باشد.');
     if (collection === 'episodes' && data.guestId && !store.all('guests').some(guest => guest.id === data.guestId)) validation.fail('مهمان مرتبط پیدا نشد.');
     const entityId = existing ? id : crypto.randomUUID();
     transaction(() => { store.save(collection, entityId, data); store.audit(admin, existing ? 'update' : 'create', collection, entityId); });
@@ -158,7 +153,7 @@ function createApp(options = {}) {
           return json(response, 200, { ...data, settings: { siteName, tagline, about, logo, youtube, linkedin, spotify, castbox, contactEmail } });
         }
         if (pathname === '/api/admin/session') { requireAdmin(admin); return json(response, 200, { admin, csrf: admin.csrf, states }); }
-        const apiCollection = /^\/api\/admin\/(guests|episodes|admins|audit)$/.exec(pathname);
+        const apiCollection = /^\/api\/admin\/(guests|episodes|pipeline|admins|audit)$/.exec(pathname);
         if (apiCollection) {
           requireAdmin(admin);
           const collection = apiCollection[1];
@@ -171,7 +166,7 @@ function createApp(options = {}) {
         if (pathname.startsWith('/admin/')) {
           if (!admin) return redirect(response, '/admin');
           const section = pathname.slice(7);
-          const content = views.adminPage(section, { admin, csrf: admin.csrf, settings: store.settings(), guests: store.all('guests'), episodes: store.all('episodes'), admins: admins(), query: url.searchParams, audit: database.prepare('SELECT audit.*,admins.name FROM audit LEFT JOIN admins ON admins.id=audit.admin_id ORDER BY audit.id DESC LIMIT 30').all() });
+          const content = views.adminPage(section, { admin, csrf: admin.csrf, settings: store.settings(), guests: store.all('guests'), episodes: store.all('episodes'), pipeline: store.all('pipeline'), admins: admins(), query: url.searchParams, audit: database.prepare('SELECT audit.*,admins.name FROM audit LEFT JOIN admins ON admins.id=audit.admin_id ORDER BY audit.id DESC LIMIT 30').all() });
           if (!content) validation.fail('صفحه پیدا نشد.', 404);
           return send(response, 200, content);
         }
@@ -312,7 +307,7 @@ function createApp(options = {}) {
       const entityRoute = /^\/(?:api\/)?admin\/(guests|episodes|pipeline)(?:\/(new|[a-f0-9-]+))?(?:\/(delete))?$/.exec(pathname);
       if (entityRoute) {
         const [, section, requestedId, action] = entityRoute;
-        const collection = section === 'pipeline' ? 'guests' : section;
+        const collection = section;
         const id = requestedId || 'new';
         if (request.method === 'DELETE' || action === 'delete') {
           if (!store.all(collection).some(item => item.id === id)) validation.fail('مورد پیدا نشد.', 404);
@@ -323,7 +318,7 @@ function createApp(options = {}) {
           });
           return api ? json(response, 200, { ok: true }) : redirect(response, `/admin/${section}`);
         }
-        const result = saveEntity(collection, id, input, admin, section === 'pipeline');
+        const result = saveEntity(collection, id, input, admin);
         return api ? json(response, id === 'new' ? 201 : 200, result) : redirect(response, `/admin/${section}?message=${encodeURIComponent('ذخیره شد.')}`);
       }
       validation.fail('Not found', 404);

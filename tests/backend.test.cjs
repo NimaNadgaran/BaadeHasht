@@ -181,23 +181,29 @@ test('super creates semi; server rejects semi account management', async () => {
   assert.equal((await root.request(`/api/admin/admins/${superId}/toggle`, {})).status, 403);
 });
 
-test('draft pipeline plans are private; publishing is independent of all six states', async () => {
-  const response = await semi.request('/api/admin/pipeline/new', { name: 'مهمان آزمایشی', state: 'First Talk', notes: 'PRIVATE-NOTE' });
+test('pipeline plans are independent objects and never create or expose guests', async () => {
+  const response = await semi.request('/api/admin/pipeline/new', { name: 'مهمان آزمایشی', state: 'First Talk', notes: 'PRIVATE-NOTE', topic: 'مهاجرت تحصیلی', contact: 'plan@example.com' });
   assert.equal(response.status, 201, response.text);
-  guest = response.data;
-  assert.equal(guest.published, false);
+  const plan = response.data;
+  assert.equal(plan.name, 'مهمان آزمایشی');
+  assert.equal(plan.topic, 'مهاجرت تحصیلی');
+  assert.ok(!Object.hasOwn(plan, 'published'));
   assert.equal((await client().request('/api/public')).data.guests.length, 0);
   for (const state of states) {
-    assert.equal((await semi.request(`/api/admin/pipeline/${guest.id}`, { state, notes: 'PRIVATE-NOTE' })).status, 200);
+    assert.equal((await semi.request(`/api/admin/pipeline/${plan.id}`, { state, notes: 'PRIVATE-NOTE' })).status, 200);
     assert.equal((await client().request('/api/public')).data.guests.length, 0);
   }
-  const published = await semi.request(`/api/admin/guests/${guest.id}`, { ...guest, state: states[5], published: true, shortBio: '<script>alert(1)</script>', linkedin: 'https://www.linkedin.com/in/test' });
-  assert.equal(published.status, 200);
+  assert.equal(app.store.all('pipeline').length, 1);
+  assert.equal(app.store.all('guests').length, 0);
+  assert.equal((await semi.request(`/api/admin/guests/${plan.id}`, { published: true })).status, 404);
+  const published = await semi.request('/api/admin/guests/new', { name: 'مهمان واقعی', slug: 'real-guest', published: true, shortBio: '<script>alert(1)</script>', linkedin: 'https://www.linkedin.com/in/test' });
+  assert.equal(published.status, 201, published.text);
   guest = published.data;
   const feed = await client().request('/api/public');
   assert.equal(feed.data.guests.length, 1);
   for (const key of ['notes', 'state', 'assignedAdmin', 'stateChangedAt']) assert.ok(!Object.hasOwn(feed.data.guests[0], key), key);
   assert.ok(!feed.text.includes('PRIVATE-NOTE'));
+  assert.equal(app.store.all('pipeline').length, 1);
   const page = await client().request('/guests');
   assert.match(page.text, /&lt;script&gt;/);
   assert.ok(!page.text.includes('<script>alert(1)</script>'));

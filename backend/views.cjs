@@ -55,7 +55,7 @@ function episodeCard(episode, home = false, guests = []) {
   const artwork = thumbnail ? image(thumbnail, episode.title) : '<div class="episode-art-placeholder" aria-hidden="true">◌</div>';
   const cover = available ? `<a class="episode-art" href="https://www.youtube.com/watch?v=${escape(episode.youtubeId)}" target="_blank" rel="noopener noreferrer" aria-label="${escape('تماشای ' + episode.title)}">${artwork}<span class="play-badge" aria-hidden="true">▶</span></a>` : `<div class="episode-art">${artwork}</div>`;
   const guest = guests.find(g => g.id === episode.guestId);
-  const guestBtn = guest && episode.guestId ? `<button type="button" class="guest-btn" data-guest-id="${escape(guest.id)}">${escape(guest.name)}</button>` : '';
+  const guestBtn = guest && episode.guestId ? `<button type="button" class="guest-btn" data-guest-id="${escape(guest.id)}"><span class="guest-btn-copy"><span class="guest-btn-label">اطلاعات مهمان</span><strong>${escape(guest.name)}</strong></span><span class="guest-btn-arrow" aria-hidden="true">↗</span></button>` : '';
   return `<article class="episode-card">${cover}<div class="card-body"><div class="episode-meta"><span class="episode-kind">${available ? 'گفت‌وگو' : 'به‌زودی'}</span><time datetime="${escape(episode.publishAt)}">${date(episode.publishAt)}</time></div><h2>${title}</h2><p>${escape(episode.description || '')}</p>${guestBtn}</div></article>`;
 }
 function homeEpisodes(published) {
@@ -75,17 +75,21 @@ function authPage(path, settings, csrf, query, error = '') {
     content = '<p class="muted">لینک یک‌بارمصرف تا ۶۰ دقیقه معتبر است.</p>' + field('email', 'ایمیل', '', 'email', 'required autocomplete="email"');
   } else if (path === '/admin/reset-password') {
     title = 'گذرواژهٔ جدید'; button = 'ثبت گذرواژه';
-    content = hidden('token', query.get('token') || '') + field('password', 'گذرواژهٔ جدید', '', 'password', 'required minlength="12" maxlength="128" autocomplete="new-password"') + field('confirmation', 'تکرار گذرواژه', '', 'password', 'required minlength="12" maxlength="128" autocomplete="new-password"');
+    content = hidden('token', query.get('token') || '') + field('password', 'گذرواژهٔ جدید', '', 'password', 'required minlength="6" maxlength="128" autocomplete="new-password"') + field('confirmation', 'تکرار گذرواژه', '', 'password', 'required minlength="6" maxlength="128" autocomplete="new-password"');
   }
   return shell(title, `<div class="auth-card">${error ? `<p class="error" role="alert">${escape(error)}</p>` : ''}${form(path, csrf, content, button)}<a class="back-link" href="${path === '/admin' ? '/admin/forgot-password' : '/admin'}">${path === '/admin' ? 'گذرواژه را فراموش کرده‌اید؟' : 'بازگشت به ورود'}</a></div>`, settings, { noindex: true, status: query.get('message') || '' });
 }
 
-function guestEditor(guest, admins, csrf, pipeline = false) {
-  const identity = field('name', 'نام مهمان', guest.name, 'text', 'required maxlength="150"');
-  const notes = field('notes', 'یادداشت خصوصی (هرگز عمومی نمی‌شود)', guest.notes, 'textarea');
-  const production = select('state', 'مرحلهٔ تولید', guest.state || states[0], states) + select('assignedAdmin', 'مسئول', guest.assignedAdmin || '', [['', 'تعیین نشده'], ...admins.filter(admin => admin.active).map(admin => [admin.id, admin.name])]) + notes;
-  const profile = upload('photo', 'تصویر', guest.photo) + field('tagline', 'معرفی کوتاه', guest.tagline) + field('shortBio', 'بخشی از توضیح', guest.shortBio, 'textarea') + field('longBio', 'ادامه توضیح', guest.longBio, 'textarea') + ['linkedin', 'youtube', 'castbox', 'spotify'].map(key => field(key, key, guest[key], 'url')).join('') + field('sortOrder', 'ترتیب نمایش', guest.sortOrder ?? 0, 'number') + field('published', 'انتشار عمومی', guest.published, 'checkbox') + notes;
-  return form(`/admin/${pipeline ? 'pipeline' : 'guests'}/${guest.id || 'new'}`, csrf, identity + (pipeline ? production : profile), 'ذخیره', 'data-editor');
+function guestEditor(guest, admins, csrf) {
+  const profile = upload('photo', 'تصویر', guest.photo) + field('tagline', 'معرفی کوتاه', guest.tagline) + field('shortBio', 'بخشی از توضیح', guest.shortBio, 'textarea') + field('longBio', 'ادامه توضیح', guest.longBio, 'textarea') + ['linkedin', 'youtube', 'castbox', 'spotify'].map(key => field(key, key, guest[key], 'url')).join('') + field('sortOrder', 'ترتیب نمایش', guest.sortOrder ?? 0, 'number') + field('published', 'انتشار عمومی', guest.published, 'checkbox');
+  return form(`/admin/guests/${guest.id || 'new'}`, csrf, field('name', 'نام مهمان', guest.name, 'text', 'required maxlength="150"') + profile, 'ذخیره', 'data-editor');
+}
+
+function pipelineEditor(item, admins, csrf) {
+  const identity = field('name', 'نام مهمان یا برنامه', item.name, 'text', 'required maxlength="150"');
+  const details = field('topic', 'موضوع گفت‌وگو', item.topic) + field('contact', 'راه ارتباط', item.contact);
+  const production = select('state', 'مرحلهٔ تولید', item.state || states[0], states) + select('assignedAdmin', 'مسئول', item.assignedAdmin || '', [['', 'تعیین نشده'], ...admins.filter(admin => admin.active).map(admin => [admin.id, admin.name])]) + field('notes', 'یادداشت خصوصی', item.notes, 'textarea');
+  return form(`/admin/pipeline/${item.id || 'new'}`, csrf, identity + details + production, 'ذخیره', 'data-editor');
 }
 
 function videoDisplayEditor(settings, csrf) {
@@ -94,28 +98,30 @@ function videoDisplayEditor(settings, csrf) {
 }
 
 function adminPage(section, context) {
-  const { admin, csrf, settings, guests, episodes, admins, query, audit } = context;
+  const { admin, csrf, settings, guests, episodes, pipeline = [], admins, query, audit } = context;
   const editId = query.get('edit');
   const commonList = (collection, items, titleKey) => `<div class="toolbar"><a class="button" href="/admin/${collection}?edit=new">افزودن</a></div><div class="table-wrap"><table><thead><tr><th>عنوان</th><th>وضعیت</th><th>ویرایش</th></tr></thead><tbody>${items.map(item => `<tr><td>${escape(item[titleKey])}</td><td>${escape(item.status || (collection === 'guests' ? (item.published ? 'منتشرشده' : 'پیش‌نویس') : item.role))}</td><td><div class="link-row"><a class="button subtle" href="/admin/${collection}?edit=${item.id}">ویرایش</a>${deleteForm(collection, item.id, csrf)}</div></td></tr>`).join('') || '<tr><td colspan="3">هنوز موردی ثبت نشده است.</td></tr>'}</tbody></table></div>`;
   let content = '';
   if (section === 'dashboard') {
-    const counts = [['کل مهمان‌ها', guests.length], ['مهمان‌های منتشرشده', guests.filter(guest => guest.published).length], ['ویدیوهای منتشرشده', episodes.filter(episode => episode.status === 'published').length], ['ویدیوهای آرشیوشده', episodes.filter(episode => episode.status === 'archived').length], ...states.map(state => [state, guests.filter(guest => guest.state === state).length])];
+    const counts = [['کل مهمان‌ها', guests.length], ['مهمان‌های منتشرشده', guests.filter(guest => guest.published).length], ['برنامه‌های تولید', pipeline.length], ['ویدیوهای منتشرشده', episodes.filter(episode => episode.status === 'published').length], ['ویدیوهای آرشیوشده', episodes.filter(episode => episode.status === 'archived').length], ...states.map(state => [state, pipeline.filter(item => item.state === state).length])];
     content = `<div class="stats">${counts.map(([label, count]) => `<article><strong>${count}</strong><span>${label}</span></article>`).join('')}</div><div class="toolbar"><a class="button" href="/admin/guests?edit=new">افزودن مهمان</a><a class="button subtle" href="/admin/episodes?edit=new">افزودن ویدیو</a><a class="button subtle" href="/admin/pipeline">روند تولید</a></div><h2>فعالیت‌های اخیر</h2><ul class="activity">${audit.map(item => `<li><span>${escape(item.name || 'مدیر')} · ${escape(item.action)} · ${escape(item.entity)}</span><time>${date(item.created_at)}</time></li>`).join('') || '<li>هنوز فعالیتی ثبت نشده است.</li>'}</ul>`;
   } else if (section === 'guests') {
     const guest = guests.find(item => item.id === editId) || {};
     content = editId ? guestEditor(guest, admins, csrf) : commonList('guests', guests, 'name');
   } else if (section === 'pipeline') {
-    if (editId) content = guestEditor(guests.find(item => item.id === editId) || {}, admins, csrf, true);
-    else {
-      const filtered = guests.filter(guest => (!query.get('state') || guest.state === query.get('state')) && guest.name.toLowerCase().includes((query.get('q') || '').toLowerCase()));
-      content = `<div class="toolbar"><a class="button" href="/admin/pipeline?edit=new">افزودن برنامه</a><a href="/admin/guests">انتشار مهمان‌ها ←</a></div><form method="get" class="search">${field('q', 'جست‌وجوی نام', query.get('q') || '', 'search')}${select('state', 'مرحله', query.get('state') || '', [['', 'همهٔ مراحل'], ...states])}<button class="button">فیلتر</button></form><div class="table-wrap"><table><thead><tr><th>مهمان</th><th>مرحله / مسئول / یادداشت</th><th>از آخرین تغییر</th><th>ویرایش</th></tr></thead><tbody>${filtered.map(guest => `<tr><td>${escape(guest.name)}<br><span class="badge state-${states.indexOf(guest.state)}">${escape(guest.state)}</span></td><td>${form(`/admin/pipeline/${guest.id}`, csrf, select('state', 'مرحله', guest.state, states) + select('assignedAdmin', 'مسئول', guest.assignedAdmin || '', [['', 'تعیین نشده'], ...admins.filter(item => item.active).map(item => [item.id, item.name])]) + field('notes', 'یادداشت خصوصی', guest.notes, 'textarea'))}</td><td>${Math.max(0, Math.floor((Date.now() - new Date(guest.stateChangedAt || guest.updatedAt).getTime()) / 86400000))} روز<br>${date(guest.updatedAt)}</td><td><a href="/admin/pipeline?edit=${guest.id}">ویرایش</a></td></tr>`).join('') || '<tr><td colspan="4">برنامه‌ای پیدا نشد.</td></tr>'}</tbody></table></div>`;
+    if (editId) {
+      const item = pipeline.find(entry => entry.id === editId) || {};
+      content = `<a class="back-link" href="/admin/pipeline">← بازگشت به روند تولید</a>` + pipelineEditor(item, admins, csrf) + (item.id ? `<div class="toolbar">${deleteForm('pipeline', item.id, csrf)}</div>` : '');
+    } else {
+      const filtered = pipeline.filter(item => (!query.get('state') || item.state === query.get('state')) && item.name.toLowerCase().includes((query.get('q') || '').toLowerCase()));
+      content = `<div class="toolbar"><a class="button" href="/admin/pipeline?edit=new">افزودن برنامه</a></div><form method="get" class="search">${field('q', 'جست‌وجوی نام', query.get('q') || '', 'search')}${select('state', 'مرحله', query.get('state') || '', [['', 'همهٔ مراحل'], ...states])}<button class="button">فیلتر</button></form><div class="table-wrap"><table><thead><tr><th>مهمان</th><th>مرحله / مسئول / یادداشت</th><th>از آخرین تغییر</th><th>ویرایش</th></tr></thead><tbody>${filtered.map(item => `<tr><td>${escape(item.name)}${item.topic ? `<br><span class="muted">${escape(item.topic)}</span>` : ''}<br><span class="badge state-${states.indexOf(item.state)}">${escape(item.state)}</span></td><td>${form(`/admin/pipeline/${item.id}`, csrf, select('state', 'مرحله', item.state, states) + select('assignedAdmin', 'مسئول', item.assignedAdmin || '', [['', 'تعیین نشده'], ...admins.filter(admin => admin.active).map(admin => [admin.id, admin.name])]) + field('notes', 'یادداشت خصوصی', item.notes, 'textarea'))}</td><td>${Math.max(0, Math.floor((Date.now() - new Date(item.stateChangedAt || item.updatedAt).getTime()) / 86400000))} روز<br>${date(item.updatedAt)}</td><td><a href="/admin/pipeline?edit=${item.id}">ویرایش</a></td></tr>`).join('') || '<tr><td colspan="4">برنامه‌ای پیدا نشد.</td></tr>'}</tbody></table></div>`;
     }
   } else if (section === 'episodes') {
     const episode = episodes.find(item => item.id === editId) || {};
     content = editId ? form(`/admin/episodes/${episode.id || 'new'}`, csrf, field('title', 'عنوان', episode.title, 'text', 'required') + field('description', 'توضیح', episode.description, 'textarea') + field('youtubeId', 'لینک یا شناسهٔ یوتیوب', episode.youtubeId) + upload('thumbnail', 'تصویر (خالی: تصویر یوتیوب)', episode.thumbnail) + field('publishAt', 'زمان انتشار (UTC)', episode.publishAt?.slice(0, 16), 'datetime-local', 'required') + select('status', 'وضعیت', episode.status || 'published', [['published', 'منتشرشده'], ['archived', 'آرشیوشده']]) + select('guestId', 'مهمان مرتبط', episode.guestId || '', [['', 'بدون مهمان'], ...guests.map(guest => [guest.id, guest.name])]) + field('pinned', 'نمایش در صفحهٔ اصلی (حالت دستی)', episode.pinned, 'checkbox'), 'ذخیره', 'data-editor') : commonList('episodes', [...episodes].sort((first, second) => String(second.publishAt || '').localeCompare(String(first.publishAt || ''))), 'title') + videoDisplayEditor(settings, csrf);
   } else if (section === 'admins') {
-    content = `<div class="table-wrap"><table><thead><tr><th>نام / ایمیل</th><th>نقش</th><th>وضعیت</th><th>آخرین ورود</th>${admin.role === 'super' ? '<th>مدیریت</th>' : ''}</tr></thead><tbody>${admins.map(item => `<tr><td>${escape(item.name)}<br><span dir="ltr">${escape(item.email)}</span></td><td>${item.role === 'super' ? 'ارشد' : 'مدیر'}</td><td>${item.active ? 'فعال' : 'غیرفعال'}</td><td>${date(item.last_login)}</td>${admin.role === 'super' ? `<td>${item.role !== 'super' ? form(`/admin/admins/${item.id}/toggle`, csrf, '', item.active ? 'غیرفعال کردن' : 'فعال کردن') : ''}${form(`/admin/admins/${item.id}/reset`, csrf, '', 'ارسال بازیابی گذرواژه')}</td>` : ''}</tr>`).join('')}</tbody></table></div>`;
-    if (admin.role === 'super') content += `<h2>ساخت حساب مدیر (${admins.filter(item => item.role === 'semi').length}/6)</h2>${form('/admin/admins/new', csrf, field('name', 'نام', '', 'text', 'required') + field('email', 'ایمیل', '', 'email', 'required') + field('password', 'گذرواژه (حداقل ۱۲ نویسه)', '', 'password', 'required minlength="12" maxlength="128" autocomplete="new-password"'), 'ساخت حساب')}`;
+    content = `<div class="table-wrap"><table><thead><tr><th>نام / ایمیل</th><th>نقش</th><th>وضعیت</th><th>آخرین ورود</th>${admin.role === 'super' ? '<th>مدیریت</th>' : ''}</tr></thead><tbody>${admins.map(item => `<tr><td>${escape(item.name)}<br><span dir="ltr">${escape(item.email)}</span></td><td>${item.role === 'super' ? 'ارشد' : 'مدیر'}</td><td>${item.active ? 'فعال' : 'غیرفعال'}</td><td>${date(item.last_login)}</td>${admin.role === 'super' ? `<td><div class="link-row">${item.role !== 'super' ? form(`/admin/admins/${item.id}/toggle`, csrf, '', item.active ? 'غیرفعال کردن' : 'فعال کردن') : ''}${form(`/admin/admins/${item.id}/reset`, csrf, '', 'ارسال بازیابی گذرواژه')}</div></td>` : ''}</tr>`).join('')}</tbody></table></div>`;
+    if (admin.role === 'super') content += `<h2>ساخت حساب مدیر (${admins.filter(item => item.role === 'semi').length}/6)</h2>${form('/admin/admins/new', csrf, field('name', 'نام', '', 'text', 'required') + field('email', 'ایمیل', '', 'email', 'required') + field('password', 'گذرواژه (حداقل ۶ نویسه)', '', 'password', 'required minlength="6" maxlength="128" autocomplete="new-password"'), 'ساخت حساب')}`;
   } else return null;
   return shell(titles[section], content, settings, { admin, csrf, path: `/admin/${section}`, status: query.get('message') || '' });
 }

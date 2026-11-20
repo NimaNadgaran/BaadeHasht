@@ -64,6 +64,7 @@ function openDatabase(directory) {
       expires INTEGER NOT NULL
     );
     CREATE TABLE IF NOT EXISTS guests (id TEXT PRIMARY KEY, data TEXT NOT NULL);
+    CREATE TABLE IF NOT EXISTS pipeline (id TEXT PRIMARY KEY, data TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS episodes (id TEXT PRIMARY KEY, data TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS team (id TEXT PRIMARY KEY, data TEXT NOT NULL);
     CREATE TABLE IF NOT EXISTS settings (id INTEGER PRIMARY KEY CHECK(id=1), data TEXT NOT NULL);
@@ -84,7 +85,7 @@ function openDatabase(directory) {
 }
 
 function repository(database) {
-  const tables = new Set(['guests', 'episodes', 'team']);
+  const tables = new Set(['guests', 'episodes', 'team', 'pipeline']);
   function table(name) {
     if (!tables.has(name)) throw new Error('Unknown collection');
     return name;

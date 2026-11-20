@@ -14,10 +14,10 @@ Both roles can manage guests, episodes and production. Semi Admins can view the 
 2. Add a photo, tagline, descriptions, and any LinkedIn/YouTube/Castbox/Spotify links. Empty links are hidden publicly. Only HTTPS links on the relevant platforms are accepted.
 3. Photos upload directly from the editor and are centre-cropped to a square and resized to at most 1200 pixels. Image uploads accept PNG/JPEG/WebP up to 5 MiB. Save the form after an upload to attach the file.
 4. Use **انتشار عمومی** to publish the profile. Sort order is ascending, then newest first for ties. Drafts never appear in the public directory or sitemap.
-5. The **روند تولید** table operates on the same guest record: First Talk → Scenario → Planned → Tool Video → Video Checked → Video Uploaded. A new plan starts as a draft guest, so no duplicate entry is needed.
-6. Assign an active admin, add private notes, filter/search, or change the state. Pipeline state, assignments and notes are excluded from public data.
+5. The **روند تولید** table is a separate workspace. Each plan is its own independent record with a name, topic, contact, state, owner and private notes. Creating or moving a plan never creates or changes a guest.
+6. Assign an active admin, add private notes, filter/search, or change the state from First Talk → Scenario → Planned → Tool Video → Video Checked → Video Uploaded. Plan data is excluded from public data.
 
-Finishing production does **not** publish a guest. Publishing is a separate action. Deleting a guest unlinks their episodes instead of deleting the episodes.
+Finishing production does **not** publish a guest. Publishing is a separate action in **مهمان‌ها**. Deleting a guest unlinks their episodes instead of deleting the episodes; deleting a plan only removes that plan.
 
 ## Episodes and the home page
 
