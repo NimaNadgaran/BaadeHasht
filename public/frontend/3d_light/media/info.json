@@ -1,0 +1,11 @@
+{
+  "source": "files/blender_files/landingpage_logo_light/frames_final",
+  "frames": 144,
+  "fps": 24,
+  "duration": 6,
+  "width": 1920,
+  "height": 1080,
+  "gop_size": 1,
+  "b_frames": 0,
+  "ball_removed": true
+}

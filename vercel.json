@@ -1,0 +1,39 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "node scripts/build-vercel.cjs",
+  "outputDirectory": "public",
+  "functions": {
+    "api/index.cjs": {
+      "maxDuration": 30,
+      "includeFiles": ["frontend/home.html"]
+    }
+  },
+  "redirects": [
+    { "source": "/frontend/home.html", "destination": "/", "permanent": false },
+    { "source": "/frontend", "destination": "/frontend/", "permanent": false },
+    { "source": "/frontend/3d_light", "destination": "/frontend/3d_light/", "permanent": false },
+    { "source": "/frontend/3d_dark", "destination": "/frontend/3d_dark/", "permanent": false },
+    { "source": "/frontend/basic", "destination": "/frontend/basic/", "permanent": false },
+    { "source": "/frontend/d3_light", "destination": "/frontend/3d_light", "permanent": false },
+    { "source": "/frontend/d3_light/:path*", "destination": "/frontend/3d_light/:path*", "permanent": false },
+    { "source": "/frontend/d3_dark", "destination": "/frontend/3d_dark", "permanent": false },
+    { "source": "/frontend/d3_dark/:path*", "destination": "/frontend/3d_dark/:path*", "permanent": false },
+    { "source": "/frontend/basic_web", "destination": "/frontend/basic", "permanent": false },
+    { "source": "/frontend/basic_web/:path*", "destination": "/frontend/basic/:path*", "permanent": false }
+  ],
+  "rewrites": [
+    { "source": "/guests", "destination": "/api/index" },
+    { "source": "/guests/:path*", "destination": "/api/index" },
+    { "source": "/about", "destination": "/api/index" },
+    { "source": "/episodes", "destination": "/api/index" },
+    { "source": "/team", "destination": "/api/index" },
+    { "source": "/privacy", "destination": "/api/index" },
+    { "source": "/terms", "destination": "/api/index" },
+    { "source": "/admin", "destination": "/api/index" },
+    { "source": "/admin/:path*", "destination": "/api/index" },
+    { "source": "/api/:path*", "destination": "/api/index" },
+    { "source": "/media/:path*", "destination": "/api/index" },
+    { "source": "/robots.txt", "destination": "/api/index" },
+    { "source": "/sitemap.xml", "destination": "/api/index" }
+  ]
+}

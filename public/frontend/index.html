@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f0edf6" />
+    <title>BaadeHasht — Choose your perspective</title>
+    <link rel="icon" href="/files/images/BlackTBack.png" type="image/png" />
+    <style>
+      @font-face{font-family:Estedad;src:url('/files/fonts/Estedad.ttf') format('truetype');font-weight:100 900;font-display:swap}
+      *{box-sizing:border-box}body{margin:0;font-family:Estedad,Arial,sans-serif;background:#f0edf6;color:#2a2435}a{color:inherit;text-decoration:none}a:focus-visible{outline:2px solid #8959b9;outline-offset:6px}header{max-width:1400px;margin:auto;display:flex;align-items:center;justify-content:space-between;padding:35px 6%;border-bottom:1px solid #39264e15}.brand{display:flex;align-items:center;gap:12px;font-size:23px;font-weight:700}.brand img{width:21px;height:34px;object-fit:contain}.header-note{font-family:Arial,sans-serif;font-size:9px;letter-spacing:3px;color:#8f819f}main{max-width:1400px;margin:auto;padding:70px 6% 45px}.eyebrow{font-family:Arial,sans-serif;font-size:9px;letter-spacing:3px;color:#8a699f;margin:0 0 19px}h1{font-family:Arial,sans-serif;font-size:clamp(34px,4.5vw,65px);font-weight:400;letter-spacing:-2.5px;line-height:1.12;margin:0}h1 span{color:#946abe}.intro{color:#8a7d96;font-size:12px;line-height:2;margin:22px 0 43px;max-width:650px}.versions{display:grid;grid-template-columns:1fr 1fr 1fr;gap:22px}.version{display:block;min-width:0;transition:transform .25s}.version:hover{transform:translateY(-5px)}.art{aspect-ratio:1.2;position:relative;overflow:hidden;border-radius:5px;background:#0b0b12}.art img{width:100%;height:100%;object-fit:cover;transition:transform .6s}.version:hover img{transform:scale(1.035)}.number{position:absolute;top:18px;left:20px;font-family:Arial,sans-serif;font-size:9px;letter-spacing:2px;color:#ded1eb8c}.tag{position:absolute;left:18px;bottom:18px;background:#0b0c154d;backdrop-filter:blur(10px);border:1px solid #ffffff20;border-radius:50px;padding:7px 10px;font-family:Arial,sans-serif;font-size:8px;letter-spacing:1px;color:#e3d5ed}.name{display:flex;align-items:center;justify-content:space-between;margin-top:22px;font-family:Arial,sans-serif;font-size:19px;letter-spacing:-.5px}.name span{color:#9b75b5;font-size:23px}.version p{font-size:10px;color:#9a8ba6;line-height:2;margin:11px 0}.basic .art img{object-fit:cover;opacity:.8}.basic .art{background:#0a0b17}.basic .number{color:#cec0db}.footnote{border-top:1px solid #39264e15;margin-top:38px;padding-top:23px;display:flex;justify-content:space-between;gap:25px;font-size:10px;color:#9a8ba6;line-height:1.9}.footnote strong{font-weight:450;color:#795a91}@media(max-width:750px){header{padding:24px 7%}.header-note{font-size:7px;letter-spacing:1.5px}main{padding:45px 7% 30px}.versions{grid-template-columns:1fr;gap:30px}.art{aspect-ratio:1.5}.name{margin-top:16px}.intro{font-size:11px}h1{letter-spacing:-1.5px}.footnote{flex-direction:column;gap:9px}.version p{margin-bottom:0}}@media(prefers-reduced-motion:reduce){*{transition:none!important}}
+    </style>
+  </head>
+  <body>
+    <header><a class="brand" href="/" lang="fa" dir="rtl"><img src="/files/images/BlackTBack.png" alt="" width="21" height="34" />بعد هشت</a><span class="header-note">THREE WAYS INTO THE CONVERSATION</span></header>
+    <main>
+      <p class="eyebrow">BAADE HASHT / FRONTEND STUDIES</p>
+      <h1>Same world.<br /><span>A different perspective.</span></h1>
+      <p class="intro">Choose a version to explore. Both 3D editions load first, play a six-second introduction, then keep the light moving as you read. The original frontend is preserved alongside them.</p>
+      <div class="versions">
+        <a class="version" href="/frontend/3d_dark/">
+          <div class="art"><img src="/frontend/3d_dark/frames/frame_0144.webp" alt="Smoked violet metal logo in the dark graphite studio" width="1280" height="720" /><span class="number">01 / GRAPHITE</span><span class="tag">AUTOPLAY + LIGHT LOOP</span></div>
+          <div class="name">D3 / Dark<span aria-hidden="true">↗</span></div><p>Graphite satin. Quiet light. A passing reflection.<br /><span lang="fa" dir="rtl">نسخهٔ تاریک، با نورپردازی آرام و عمیق.</span></p>
+        </a>
+        <a class="version" href="/frontend/3d_light/">
+          <div class="art"><img src="/frontend/3d_light/frames/frame_0144.webp" alt="Vivid violet and cyan logo in the brighter studio" width="1280" height="720" /><span class="number">02 / VIOLET</span><span class="tag">AUTOPLAY + LIGHT LOOP</span></div>
+          <div class="name">D3 / Light<span aria-hidden="true">↗</span></div><p>Violet, cyan and orchid. A little more vivid.<br /><span lang="fa" dir="rtl">نسخهٔ روشن، با رنگ‌های زنده و فضایی سبک‌تر.</span></p>
+        </a>
+        <a class="version basic" href="/frontend/basic/">
+          <div class="art"><img src="/files/videos/poster.jpg" alt="Original BaadeHasht frontend intro" width="1280" height="720" /><span class="number">03 / ORIGINAL</span><span class="tag">THE ORIGINAL FRONTEND</span></div>
+          <div class="name">Basic / Original<span aria-hidden="true">↗</span></div><p>The first direction, kept in its own new home.<br /><span lang="fa" dir="rtl">طراحی اولیه، همان‌طور که بود.</span></p>
+        </a>
+      </div>
+      <div class="footnote"><span>A six-second reveal. A continuous light sweep. Native scrolling.<br />Touch, trackpad and keyboard supported.</span><span lang="fa" dir="rtl">حرکت دوربین و عبور نور، دست‌نخورده.<br />آغاز خودکار؛ ادامه با خواندن شما.</span></div>
+    </main>
+  </body>
+</html>
